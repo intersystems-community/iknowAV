@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-17 22:32:25">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-18 12:58:26">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
 <TimeChanged>63416,34988.200443</TimeChanged>
@@ -244,7 +244,7 @@ domName - имя домена, в котором проводится дейст
 
 <Class name="iknowAV.Hotels.Processing.Dictionary">
 <IncludeCode>%IKPublic</IncludeCode>
-<TimeChanged>63416,80135.055599</TimeChanged>
+<TimeChanged>63417,46244.719776</TimeChanged>
 <TimeCreated>63391,62547.861221</TimeCreated>
 
 <Method name="TeachFMarkersDictionary">
@@ -507,7 +507,7 @@ domName - имя домена</Description>
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63416,81083.209728</TimeChanged>
+<TimeChanged>63417,45724.027489</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
 <Parameter name="NEUTRALLOWBORDER">
@@ -663,11 +663,11 @@ srcId - ID источника.</Description>
 	// Получаем ID домена
 	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
 	
-	/*
+
 	set file = "C:\InterSystems\log.txt"
 	set stream = ##class(%Stream.FileCharacter).%New()
 	do stream.LinkToFile(file)
-	*/
+
 		
 	set p1 = ""	
 		
@@ -724,16 +724,16 @@ srcId - ID источника.</Description>
 			}
 			
 			// Добавляем в соответствующее поле весовое значение 					
-			if (sValue = "+1")		{set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),4) = $list(^iknowAV.Hotels.PrE05F.SentenceD(id),4) + 1 } //do stream.WriteLine(sentenceId_"+1"_entityValue)}
-			elseif (sValue = "-1")	{set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),5) = $list(^iknowAV.Hotels.PrE05F.SentenceD(id),5) + 1 } //do stream.WriteLine(sentenceId_"-1"_entityValue)}
+			if (sValue = "+1")		{set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),4) = $list(^iknowAV.Hotels.PrE05F.SentenceD(id),4) + 1 do stream.WriteLine(sentenceId_"+1"_entityValue)}
+			elseif (sValue = "-1")	{set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),5) = $list(^iknowAV.Hotels.PrE05F.SentenceD(id),5) + 1 do stream.WriteLine(sentenceId_"-1"_entityValue)}
 							
 		}	// for (Sentence)
 		
 	} // while 'stream.AtEnd
 	
-	/*
+	
 	do stream.%Save()
-	*/
+	
 	
 	return $$$OK
 ]]></Implementation>
@@ -1179,8 +1179,13 @@ hotelId - ID отеля (будут обработаны все отзывы э�
 	
 	&sql(SELECT %DLIST(EmotionalSaturation), %DLIST(ID) INTO :esList, :idList FROM iknowAV_Hotels_Stat.ReviewStat WHERE HotelId = :hotelId)	
 	
-	set meanES = ##class(iknowAV.Hotels.Stat.Statistics).Mean(esList)
-	set stdevES = ##class(iknowAV.Hotels.Stat.Statistics).StdDev(esList)
+	if ($listlength(esList) > 0) {
+		set meanES = ##class(iknowAV.Hotels.Stat.Statistics).Mean(esList)
+		set stdevES = ##class(iknowAV.Hotels.Stat.Statistics).StdDev(esList)
+	}
+	else {
+		return $$$OK
+	}
 	
 	set length = $listlength(idList)
 	
@@ -1192,8 +1197,12 @@ hotelId - ID отеля (будут обработаны все отзывы э�
 	     
 	     if (reviewStat.EmotionalSaturation = 0) { continue }
 		
-		 if (('$data(stdevES) || (stdevES = 0))) { set us1 = 0 }
-		 else 									 { set us1 = 1 - (($zabs(reviewStat.EmotionalSaturation - meanES)) / (3 * stdevES)) }
+		 if (('$data(stdevES) || (stdevES = 0))) { 
+		 	set us1 = 0 
+		 }
+		 else {
+		 	set us1 = 1 - (($zabs(reviewStat.EmotionalSaturation - meanES)) / (3 * stdevES)) 
+		 }
 		 
 		 if (us1 < 0) { set us1 = 0 }
 		 
@@ -1301,10 +1310,14 @@ numberOfWordsInSentence - максимальное количество слов
 	set filter = ##class(%iKnow.Filters.SimpleMetadataFilter).%New(domainId, "HotelId","=",hotelId)
 	
 	// Загрузка файла со словарем функциональных маркеров		
-	#dim filename As %String = ^iknowAVDomainFolder(domName)_"fmarkers.txt"
-	//write "   fmarkers file... ", filename,!
-	#dim stream As %Stream.FileCharacter = ##class(%Stream.FileCharacter).%New()
-	set status = stream.LinkToFile(filename)
+	set filename = ^iknowAVDomainFolder(domName)_"fmarkers.txt"
+	set stream = ##class(%Stream.FileCharacter).%New()
+	set tSC = stream.LinkToFile(filename)
+	
+	if (tSC '= $$$OK) {
+		write "Can't open file ", filename, !
+		return $$$ERROR()
+	}
 	
 	set categoryFound = 0
 	
@@ -1322,17 +1335,18 @@ numberOfWordsInSentence - максимальное количество слов
 		
 		if (stype = "d") { continue }
 		// Обрабатываем строку с названием категории
-		elseif (stype = "i") 
-		{
+		elseif (stype = "i") {
+			
 			// Получаем название следующей категории
 			set markerCategory = $piece(line,"#",2)
 	
 			if (categoryName '= markerCategory) { continue }
-			else { set categoryFound = 1 }
+			else {
+				set categoryFound = 1 
+			}
 		}
 		// Обрабатываем строку с терминами
-		elseif (stype="t") 
-		{
+		elseif (stype="t") {
 			if (categoryName '= markerCategory) { continue }
 			
 			// Получаем название следующей категории
@@ -1340,17 +1354,16 @@ numberOfWordsInSentence - максимальное количество слов
 			set j = 1
 			
 			// Цикл по терминам в строке
-			while ($piece(dList,",",j)'="")
-			{	
+			while ($piece(dList,",",j)'="") {	
+				
 				// $piece(dList,",",j) - текущий термин
 				set currentEntity = $piece(dList,",",j)
 				set j = j + 1
 				
 				// Для первого прохода
-				if (mostSpreadEntity = "") 
-				{
+				if (mostSpreadEntity = "") {
 					set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId,currentEntity)
-	
+					
 					if (entityId = "") { continue }			
 							
 					set mostSpreadEntity = currentEntity
@@ -1369,8 +1382,7 @@ numberOfWordsInSentence - максимальное количество слов
 					set mostSpread = currentSpread
 					set mostSpreadEntity = currentEntity
 					set mostSpreadEntityId = entityId
-				}		
-					
+				}			
 			}
 		}
 	}
@@ -1406,12 +1418,10 @@ numberOfWordsInSentence - максимальное количество слов
 		&sql(SELECT ID INTO :id FROM  iknowAV_Hotels_Stat.Review WHERE DomainName = :domName)
 		
 		// Если значение получено, открываем источник по ID
-		if (SQLCODE = 0)
-		{	
+		if (SQLCODE = 0) {	
 			set review = ##class(iknowAV.Hotels.Stat.Review).%OpenId(id)	
 		}
-		else
-		{
+		else {
 			write "Error: source " + srcId + " not found", !
 			return $$$ERROR()
 		}
@@ -1420,16 +1430,13 @@ numberOfWordsInSentence - максимальное количество слов
 					
 		set iKnowCategory = "iKnowRating"_categoryName			
 								
-		if (positiveGrade = 1)
-		{
-			if ($property(review,iKnowCategory) <= ..#POSNEGBORDER) 
-			{ 
+		if (positiveGrade = 1) {
+			if ($property(review,iKnowCategory) <= ..#POSNEGBORDER) { 
 				set reviewCount = reviewCount + 1
 				continue 
 			}
 		}		
-		else 
-		{
+		else {
 			if ($property(review,iKnowCategory) > ..#POSNEGBORDER) { 
 				set reviewCount = reviewCount + 1
 				continue 
@@ -1471,14 +1478,12 @@ numberOfWordsInSentence - максимальное количество слов
 
 			set sentenceLength = $length(currentSentence, " ")
 			
-			if (sentenceLength < numberOfWordsInSentence)
-			{
+			if (sentenceLength < numberOfWordsInSentence) {
 				set $list(allResult,*+1) = sentenceId
 			}
 								
 		 }	// for (Sentence)
-
-			
+		
 		set reviewCount = reviewCount + 1 
 	}
 	
@@ -1489,8 +1494,7 @@ numberOfWordsInSentence - максимальное количество слов
 	// Если SQL-запрос ничего не вернул
 	if (SQLCODE = 100) { return $$$ERROR() }
 	// Если SQL-запрос вернул нам ID, то открываем объект
-	elseif (SQLCODE = 0)
-	{
+	elseif (SQLCODE = 0) {
 		set hotel = ##class(iknowAV.Hotels.Stat.Hotel).%OpenId(hotelObjId)
 	}		
 	
@@ -1525,8 +1529,12 @@ domName - имя домена </Description>
 				set hotel = ##class(iknowAV.Hotels.Stat.Hotel).%OpenId($list(idList,i))
 				set property = "iKnowRating"_categoryName
 				
-				if ($property(hotel, property) > 3) { set positiveGrade = 1 }
-				else { set positiveGrade = 0 }
+				if ($property(hotel, property) > 3) { 
+					set positiveGrade = 1 
+				}
+				else { 
+					set positiveGrade = 0 
+				}
 				
 				kill hotel
 				
@@ -1554,8 +1562,7 @@ numberOfResults - количество результатов (на данный
 	// Если SQL-запрос ничего не вернул
 	if (SQLCODE = 100) { return "" }
 	// Если SQL-запрос вернул нам ID, то открываем объект
-	elseif (SQLCODE = 0)
-	{
+	elseif (SQLCODE = 0) {
 		set hotel = ##class(iknowAV.Hotels.Stat.Hotel).%OpenId(hotelObjId)
 	}		
 	
