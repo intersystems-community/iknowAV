@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-19 14:17:49">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-19 16:44:19">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
 <TimeChanged>63416,34988.200443</TimeChanged>
@@ -507,7 +507,7 @@ domName - имя домена</Description>
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63418,51458.789718</TimeChanged>
+<TimeChanged>63418,60254.151947</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
 <Parameter name="NEUTRALLOWBORDER">
@@ -624,6 +624,8 @@ applyNegation: 1 - цчитывать предложения с Negation, 0 - н
 	write "Processing Emotional Stats complete with status: ", tSC, !
 	
 	do ..ProcessSuspectAndUsefulness()
+	
+	do ..ProcessAllHotelsSents()
 	
 	set endTime = $piece($horolog,",",2)
 
@@ -1307,14 +1309,7 @@ hotelId - ID отеля (будут обработаны все отзывы э�
 
 <UDLText name="T">
 <Content><![CDATA[
-// ------------------------------------------------------------------------------------------------------------
-
-]]></Content>
-</UDLText>
-
-<UDLText name="T">
-<Content><![CDATA[
-// ЕЩЕ НЕ ОТЛАЖЕНО И НЕ ДЕБАВЛЕНО В ОСНОВНУЮ ЧАСТЬ КОДА
+// ТРЕБУЕТ РЕФАКТОРИНГА И ОПТИМИЗАЦИИ
 
 ]]></Content>
 </UDLText>
@@ -1329,7 +1324,7 @@ categoryName - имя категории
 positiveGrade - предложения с каким окрасом выбирать. 1 - позитивные, 0 - негативные.
 numberOfWordsInSentence - максимальное количество слов в отдельно взятом предложении</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,hotelId:%Integer,categoryName:%String,positiveGrade:%Boolean,numberOfWordsInSentence:%Integer=15</FormalSpec>
+<FormalSpec>domName:%String,hotelId:%Integer,categoryName:%String,numberOfWordsInSentence:%Integer=15</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	// Получаем ID домена
@@ -1347,28 +1342,20 @@ numberOfWordsInSentence - максимальное количество слов
 	// Текущая категория
 	set markerCategory = ""
 	//
-	set topResult = $lb()
-	set allResult = $lb()
-	
+
 	// Устанавливаем фильтр по HotelId
-	set filter = ##class(%iKnow.Filters.SimpleMetadataFilter).%New(domainId, "HotelId","=",hotelId)
-	
-	// Загрузка файла со словарем функциональных маркеров		
-	set filename = ^iknowAVDomainFolder(domName)_"fmarkers.txt"
-	set stream = ##class(%Stream.FileCharacter).%New()
-	set tSC = stream.LinkToFile(filename)
-	
-	if (tSC '= $$$OK) {
-		write "Can't open file ", filename, !
-		return $$$ERROR()
-	}
-	
+	set filter = ##class(%iKnow.Filters.SimpleMetadataFilter).%New(domainId, "HotelId","=",hotelId)	
+
 	set categoryFound = 0
 	
-	// Цикл по строкам файла	
-	while '(stream.AtEnd) 
-	{		
-		set line = stream.ReadLine()
+	set p1 = ""
+		
+	for
+	{	
+		set p1 = $order(^fmarkers(p1))
+		quit:(p1 = "")
+		
+		set line = ^fmarkers(p1)
 	
 		// проверка строки на комментарий (начинается с !)		
 		set checkComment = $piece(line,"!",1,1)
@@ -1393,49 +1380,35 @@ numberOfWordsInSentence - максимальное количество слов
 		elseif (stype="t") {
 			if (categoryName '= markerCategory) { continue }
 			
-			// Получаем название следующей категории
-			set dList = $piece(line,"#",2)	
-			set j = 1
+			set currentEntity = $piece(line,"#",2)	
+	
+			// Для первого прохода
+			if (mostSpreadEntity = "") {
+				set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId,currentEntity)
+				
+				if (entityId = "") { continue }			
+						
+				set mostSpreadEntity = currentEntity
+				set mostSpread = ##class(%iKnow.Queries.EntityAPI).GetSpread(domainId,entityId,,filter)
+				set mostSpreadEntityId = entityId
+			}	
 			
-			// Цикл по терминам в строке
-			while ($piece(dList,",",j)'="") {	
-				
-				// $piece(dList,",",j) - текущий термин
-				set currentEntity = $piece(dList,",",j)
-				set j = j + 1
-				
-				// Для первого прохода
-				if (mostSpreadEntity = "") {
-					set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId,currentEntity)
-					
-					if (entityId = "") { continue }			
-							
-					set mostSpreadEntity = currentEntity
-					set mostSpread = ##class(%iKnow.Queries.EntityAPI).GetSpread(domainId,entityId,,filter)
-					set mostSpreadEntityId = entityId
-				}	
-				
-				// Ищем Entity с максимальным Spread
-				set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId,currentEntity)			
-				
-				if (entityId = "") { continue }
-				
-				set currentSpread = ##class(%iKnow.Queries.EntityAPI).GetSpread(domainId,entityId,,filter)	
-				
-				if (currentSpread > mostSpread) {
-					set mostSpread = currentSpread
-					set mostSpreadEntity = currentEntity
-					set mostSpreadEntityId = entityId
-				}			
-			}
+			// Ищем Entity с максимальным Spread
+			set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId,currentEntity)			
+			
+			if (entityId = "") { continue }
+			
+			set currentSpread = ##class(%iKnow.Queries.EntityAPI).GetSpread(domainId,entityId,,filter)	
+			
+			if (currentSpread > mostSpread) {
+				set mostSpread = currentSpread
+				set mostSpreadEntity = currentEntity
+				set mostSpreadEntityId = entityId
+			}			
 		}
 	}
 	
 	if (categoryFound = 0) { return $$$ERROR("There is no choosen category.") }
-	
-	write "Category: ", categoryName, !
-	write "Most Spread Entity: ", mostSpreadEntity, !
-	write "Spread: ", mostSpread, !
 	
 	kill srcResult
 	
@@ -1444,20 +1417,11 @@ numberOfWordsInSentence - максимальное количество слов
 	
 	// Получаем количество источников
 	set numberOfReviews = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId,filter)
-	
-	set reviewCount = 1
-	
-	while (reviewCount <= numberOfReviews)
-	{
-		set srcId = $list(srcResult(reviewCount),1)
 
-		// Очищаем таблицу Sentence
-		set sc = ##class(iknowAV.Hotels.Processing.Processing).ClearSentences()
-		// Заполняем таблицу Sentence с учетов эмоциональных маркеров
-		set sc = ##class(iknowAV.Hotels.Processing.Processing).BuildProcessingSentences(domName, srcId)
-		// Обрабатываем Negation
-		set sc = ##class(iknowAV.Hotels.Processing.Processing).ProcessNegationSentences(domName, srcId)
-		
+	for i=1:1:numberOfReviews
+	{
+		set srcId = $list(srcResult(i),1)
+
 		// Получаем ID отзыва в таблице
 		&sql(SELECT ID INTO :id FROM  iknowAV_Hotels_Stat.Review WHERE DomainName = :domName)
 		
@@ -1473,29 +1437,13 @@ numberOfWordsInSentence - максимальное количество слов
 		kill result
 					
 		set iKnowCategory = "iKnowRating"_categoryName			
-								
-		if (positiveGrade = 1) {
-			if ($property(review,iKnowCategory) <= ..#POSNEGBORDER) { 
-				set reviewCount = reviewCount + 1
-				continue 
-			}
-		}		
-		else {
-			if ($property(review,iKnowCategory) > ..#POSNEGBORDER) { 
-				set reviewCount = reviewCount + 1
-				continue 
-			}			
-		}	
 						
 		// Получаем список предложений в источнике, содержащих данный концепт					
 		set st = ##class(%iKnow.Queries.SentenceAPI).GetByEntityIds(.result, domainId, $lb(mostSpreadEntityId), $lb(srcId), 1, 0)					
 
 		set p2 = ""
 						
-		if '($data(result(1))) { 
-			set reviewCount = reviewCount + 1
-			continue 
-		}
+		if '($data(result(1))) { continue }
 						
 		// Цикл по предложениям, содержащим концепт
 		for 
@@ -1528,10 +1476,7 @@ numberOfWordsInSentence - максимальное количество слов
 								
 		 }	// for (Sentence)
 		
-		set reviewCount = reviewCount + 1 
 	}
-	
-	set $list(allResult, 1) = $listlength(allResult) - 1	
 		
 	&sql(SELECT id INTO :hotelObjId FROM iknowAV_Hotels_Stat.Hotel WHERE HotelId = :hotelId)
 	
@@ -1544,7 +1489,9 @@ numberOfWordsInSentence - максимальное количество слов
 	
 	set property = "Sent"_categoryName
 	
-	set $property(hotel,property) = allResult
+	if ($data(allResult)) {
+		set $property(hotel,property) = allResult
+	}
 	do hotel.%Save()
 	kill hotel
 	
@@ -1564,25 +1511,10 @@ domName - имя домена </Description>
 		
 		set length = $listlength(hotelIdList)
 		
-		for i=1:1:length
-		{
+		for i=1:1:length {
 		
-			for categoryName = "Comfort","Food","Hospitality","Location","Service","Territory" 
-			{
-				
-				set hotel = ##class(iknowAV.Hotels.Stat.Hotel).%OpenId($list(idList,i))
-				set property = "iKnowRating"_categoryName
-				
-				if ($property(hotel, property) > 3) { 
-					set positiveGrade = 1 
-				}
-				else { 
-					set positiveGrade = 0 
-				}
-				
-				kill hotel
-				
-				do ..GetCategoryDetail(domName, $list(hotelIdList,i), categoryName, positiveGrade)
+			for categoryName = "Comfort","Food","Hospitality","Location","Service","Territory" {
+				do ..GetCategoryDetail(domName, $list(hotelIdList,i), categoryName)
 			}	
 		}
 		
@@ -1590,7 +1522,7 @@ domName - имя домена </Description>
 ]]></Implementation>
 </Method>
 
-<Method name="GetRandomSentences">
+<Method name="GetRandomSentence">
 <Description>
 Метод, возвращающий случайные предложения по указанной категории в указанном отеле
 domName - имя домена
@@ -1615,19 +1547,22 @@ numberOfResults - количество результатов (на данный
 	set allResult = $property(hotel,property)
 	kill hotel
 	
+	if (allResult = "") {
+		return ""	
+	}
+	
 	set count = 0
 	
-	set alreadyInResultList = $lb()
-	
-	while ((count <= numberOfResults) && (count < ($list(allResult, 1))))
+	while ((count < numberOfResults) && (count < ($listlength(allResult))))
 	{
 		// Получаем ID домена	
 		set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
 		
-		// Первый элемент у нас содержит количество предложений в листе, а random дает от 0 до n. Поэтому прибавляем 2.
-		set rnd = $random($list(allResult, 1)) + 2
-	
-		if ($listfind(alreadyInResultList, rnd) '= 0) { continue }
+		set rnd = $random($listlength(allResult)) + 1
+		
+		if ($data(alreadyInResultList)) {
+			if ($listfind(alreadyInResultList, rnd) '= 0) { continue }
+		}
 		
 		set $list(topResult,*+1) = $list(allResult, rnd)
 		set $list(alreadyInResultList,*+1) = rnd
@@ -1635,30 +1570,14 @@ numberOfResults - количество результатов (на данный
 		set count = count + 1
 	}
 	
-	set $list(topResult, 1) = $listlength(topResult) - 1
-	
 	// return topResult
-	return ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, $list(topResult,2))
+	return ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, $list(topResult,1))
 ]]></Implementation>
 </Method>
 
 <UDLText name="T">
 <Content><![CDATA[
 // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-]]></Content>
-</UDLText>
-
-<UDLText name="T">
-<Content><![CDATA[
-// ||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
-
-]]></Content>
-</UDLText>
-
-<UDLText name="T">
-<Content><![CDATA[
-// ------------------------------------------------------------------------------------------------------------
 
 ]]></Content>
 </UDLText>
@@ -1750,7 +1669,7 @@ ID предложения.</Description>
 
 <Class name="iknowAV.Hotels.Stat.Hotel">
 <Super>%Persistent,%XML.Adaptor</Super>
-<TimeChanged>63399,59138.315946</TimeChanged>
+<TimeChanged>63418,57908.022947</TimeChanged>
 <TimeCreated>63382,56812.800158</TimeCreated>
 
 <Property name="HotelId">
@@ -1993,6 +1912,12 @@ hotelId - ID отеля</Description>
 		
 		&sql(fetch crsr)
 	}
+		
+	&sql(close crsr)
+	
+	if (reviewCount = 0) { 
+		return "Нет отзывов по данному отелю."
+	}
 	
 	// Получаем название отеля
 	&sql(SELECT HotelName INTO :hotelName FROM iknowAV_Hotels_Stat.Hotel WHERE HotelId = :hotelId)
@@ -2168,8 +2093,6 @@ hotelId - ID отеля</Description>
 	if (var '= 1) { set extraText = ""}
 	
 	set finalText = finalText_comfortText_foodText_hospitalityText_serviceText_"."_extraText
-	
-	&sql(close crsr)
 	
 	return finalText
 ]]></Implementation>
