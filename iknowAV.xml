@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-18 18:14:19">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-19 13:34:33">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
 <TimeChanged>63416,34988.200443</TimeChanged>
@@ -507,7 +507,7 @@ domName - имя домена</Description>
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63417,65652.775831</TimeChanged>
+<TimeChanged>63418,45965.772092</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
 <Parameter name="NEUTRALLOWBORDER">
@@ -548,6 +548,7 @@ applyNegation: 1 - цчитывать предложения с Negation, 0 - н
 <Implementation><![CDATA[
 	
 	set beginTime = $piece($horolog,",",2)
+	write !, "Started at: ", $ztime(beginTime), !
 	
 	// Получаем ID домена
 	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
@@ -573,7 +574,7 @@ applyNegation: 1 - цчитывать предложения с Negation, 0 - н
 	
 	set j = 1
 	
-	write "   Processing sentences.. Please wait.", !
+	write !, "Processing sentences.. Please wait.", !
 	for m=1:1:numberOfGroups {
 		
 		set i = 1
@@ -610,7 +611,7 @@ applyNegation: 1 - цчитывать предложения с Negation, 0 - н
 			set j = j + 1
 		}
 		
-		write !, "Processing SourceIDs ", $li(srcList,(m-1)*512+1), " - ", $li(srcList,j-1), " of ", numberOfSources, !
+		write !, "Processing SourceIDs ", ((m-1)*512+1), " - ", j-1, " of ", numberOfSources, !
 		do ..ProcessSource(domName, srcList, applyNegation)
 		
 	}
