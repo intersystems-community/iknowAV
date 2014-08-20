@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-19 16:44:19">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-20 12:26:37">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
 <TimeChanged>63416,34988.200443</TimeChanged>
@@ -507,7 +507,7 @@ domName - имя домена</Description>
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63418,60254.151947</TimeChanged>
+<TimeChanged>63419,44770.491985</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
 <Parameter name="NEUTRALLOWBORDER">
@@ -1564,14 +1564,13 @@ numberOfResults - количество результатов (на данный
 			if ($listfind(alreadyInResultList, rnd) '= 0) { continue }
 		}
 		
-		set $list(topResult,*+1) = $list(allResult, rnd)
+		set $list(topResult,*+1) = ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId,($list(allResult, rnd)))
 		set $list(alreadyInResultList,*+1) = rnd
 		
 		set count = count + 1
 	}
 	
-	// return topResult
-	return ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, $list(topResult,1))
+	return topResult
 ]]></Implementation>
 </Method>
 
