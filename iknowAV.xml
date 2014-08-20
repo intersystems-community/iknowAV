@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-20 12:26:37">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-20 12:52:11">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
 <TimeChanged>63416,34988.200443</TimeChanged>
@@ -507,7 +507,7 @@ domName - имя домена</Description>
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63419,44770.491985</TimeChanged>
+<TimeChanged>63419,45852.505612</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
 <Parameter name="NEUTRALLOWBORDER">
@@ -625,7 +625,7 @@ applyNegation: 1 - цчитывать предложения с Negation, 0 - н
 	
 	do ..ProcessSuspectAndUsefulness()
 	
-	do ..ProcessAllHotelsSents()
+	do ..ProcessAllHotelsSents(domName)
 	
 	set endTime = $piece($horolog,",",2)
 
