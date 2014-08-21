@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-20 12:22:08">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-21 10:11:19">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
-<TimeChanged>63416,34988.200443</TimeChanged>
+<TimeChanged>63419,51925.480406</TimeChanged>
 <TimeCreated>63378,61408.462569</TimeCreated>
 
 <Method name="Load">
 <Description>
-Метод загрузки отзывов в домен.
-domName - имя домена
-domFolder - папка для создания конфигурации. Содержит словари, блэклисты и т.д.
-FromId - Id отзыва, с которого начинать загрузку
-ToId - Id отзыва, до которого производить загрузку.
-Например, при вызове do ##class(iknowAV.Hotels.loader).Load("Hotels", "C:\Hotels\Russian\", 1, 1000)
-метод Load попробует осуществить загрузку отзывов с ID от 1 до 1000</Description>
+Method of loading reviews domain.
+domName - Domain name.
+domFolder - folder for creating a configuration.. Contains dictionaries, blacklists, etc.
+FromId - Review ID, with which to start the loading
+ToId - Review ID, to which should be loading done.
+For example, with call: do ##class(iknowAV.Hotels.loader).Load("Hotels", "C:\Hotels\Russian\", 1, 1000)
+Load method try to loading Reviews with ID from 1 to 1000</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>domName:%String,domFolder:%String,FromId:%Integer=1,ToId:%Integer=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	// Проверяем входные параметры на корректность
+	// Check the input parameters for validity
 	if (((ToId '= 0) & (FromId > ToId)) || (FromId <= 0) || (ToId < 0)) 
 	{
 		write "Wrong parameters FromID|ToID.", !	
@@ -27,10 +27,10 @@ ToId - Id отзыва, до которого производить загру�
 	
 	write "Loading started at: ", $zdatetime($horolog), !
 	
-	// Если домен не существует, создаем новый (так же создается конфигуация)
+	// If the domain does not exist, create a new (also creating a configuration)
 	do ##class(iknowAV.util.main).CreateDomainIfNotExists(domName, domFolder)
 	set domId = ##class(%iKnow.Domain).GetOrCreateId(domName)
-	// Устанавливаем имя конфигурации	
+	// Set the name of configuration	
 	#dim confName As %String = "Conf"_domName
 	
 	set lister = ##class(%iKnow.Source.SQL.Lister).%New(domId)
@@ -39,14 +39,13 @@ ToId - Id отзыва, до которого производить загру�
 	do lister.SetConfig(confName)
 	set loader = ##class(%iKnow.Source.Loader).%New(domId)
 	
-	// Создаются поля метаданных	
+	// Crating the Metadata fields	
 	do ..SetMetaDataFields(domName)	
-	// Создаются словари для matching							
+	// Creating dictionaries for Matching							
 	do ##class(iknowAV.util.main).CreateDictionaries(domName)	
-	// Формируются черные списки
+	// Blacklist are forming
 	do ##class(iknowAV.util.main).CreateBlackLists(domName, "GeneralBlackList")			
 	
-	// Переменная для хранения текста SQL-запроса
 	set myquery = "SELECT ID1 As ID, review_title as Title, hotel_id as HotelId,"_
 				  " hotel_name As HotelName, review_text as reviewText, country as Country, resort as Resort,"_
 				  " author as Author, travel_date as TravelDate,"_
@@ -55,11 +54,11 @@ ToId - Id отзыва, до которого производить загру�
 				  " rating_service as AuthorRatingService, rating_territory as AuthorRatingTerritory"_ 
 				  " FROM Nui.hreview"
 	
-	// Формируем запрос в соответствии с входными параметрами
+	// Form a query in accordance with the input parameters
 	if (ToId > 0) 						{ set myquery = myquery_" Where ID1 >= "_FromId_" AND ID1 <= "_ToId }
 	elseif ((FromId > 1) && (ToId = 0)) { set myquery = myquery_" Where ID1 >= "_FromId }
 	
-	// Формируем Batch
+	// Forming batch
 	// =================
 	set meta = $lb("Title", "HotelId", "HotelName", "Country", "Resort", "Author", "TravelDate", "AuthorRating", "AuthorRatingComfort", "AuthorRatingFood", "AuthorRatingHospitality", "AuthorRatingLocation", "AuthorRatingService", "AuthorRatingTerritory")
 	set data = $lb("reviewText")
@@ -75,14 +74,15 @@ ToId - Id отзыва, до которого производить загру�
     // =================
       
     write "Adding List to Batch Complete!", !
-     
-    // Запускаем обработку 	
+    	
     set tSC = loader.ProcessBatch()      
     
-    // В случае появления ошибки, прерывать процесс не следует, т.к. ошибки могут носить и безобидный характер.
-    if (tSC '= $$$OK) { write "The loader failed: ", $System.Status.DisplayError(tSC) }
+    // In the event of an error, the process should not be interrupted, since errors can be harmless.
+    if (tSC '= $$$OK) { 
+    	write "The loader failed: ", $System.Status.DisplayError(tSC) 
+    }
     
-    // Матчим источники	
+    // Matching sources
     // =======================
     write !, "   matching sources...", !
 	
@@ -94,13 +94,13 @@ ToId - Id отзыва, до которого производить загру�
 	
 	#dim numOfSources As %Integer = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domId)
 	
-	// Цикл по всем источникам для заполнения таблицы iknowAV_Hotels_Stat.Review
+	// Loop through all sources to fill iknowAV_Hotels_Stat.Review table
 	for i = initialNumOfSources+1:1:numOfSources 
 	{
 		set externalId = ##class(%iKnow.Queries.SourceAPI).GetExternalId(domId, i)
 		
-		// SQL запрос в данном случае не подходит, так как строки при ProcessBatch обрабатываются 
-		// параллельно (могут обрабатываться НЕ по порядку)
+		// SQL query in this case is not suitable, since the line at ProcessBatch processed
+		// parallel (can be processed out of order)
 		set AuthorRating = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "AuthorRating", externalId)
 		set AuthorRatingComfort = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "AuthorRatingComfort", externalId)
 		set AuthorRatingFood = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "AuthorRatingFood", externalId)
@@ -112,7 +112,7 @@ ToId - Id отзыва, до которого производить загру�
 		set hotelID = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "HotelId", externalId)						
 		set SourceId = i
 		
-		// Добавляем/обноляем запись в iknowAV_Hotels_Stat.Review
+		// Insert/update record in iknowAV_Hotels_Stat.Review
 		&sql(INSERT OR UPDATE INTO iknowAV_Hotels_Stat.Review 
 			 (DomainName, SourceId, AuthorRating, AuthorRatingComfort, AuthorRatingFood,
 			  AuthorRatingHospitality, AuthorRatingLocation, AuthorRatingService, AuthorRatingTerritory, HotelId)
@@ -125,7 +125,7 @@ ToId - Id отзыва, до которого производить загру�
 		}	
 	}
 		
-	// Удаляем ненужные больше поля метаданных
+	// Remove unneeded metadata fields
 	do ##class(%iKnow.Queries.MetadataAPI).RemoveField( domId,"AuthorRating" )
 	do ##class(%iKnow.Queries.MetadataAPI).RemoveField( domId,"AuthorRatingComfort" )
 	do ##class(%iKnow.Queries.MetadataAPI).RemoveField( domId,"AuthorRatingFood" )
@@ -135,8 +135,7 @@ ToId - Id отзыва, до которого производить загру�
 	do ##class(%iKnow.Queries.MetadataAPI).RemoveField( domId,"AuthorRatingTerritory" )
 	
 	write !, "Loading finished at: ", $zdatetime($horolog), !
-	
-	// Статистика загруженных источников (было, загружено, стало)		
+			
 	write !, "Initial Number of Sources: ", initialNumOfSources, !
 	write "Sources Added: ", numOfSources - initialNumOfSources, !
 	write "Total: ", numOfSources,!
@@ -147,17 +146,15 @@ ToId - Id отзыва, до которого производить загру�
 
 <Method name="SetMetaDataFields">
 <Description>
-Установка дополнительных полей метаданных для отзывов
-domName - имя домена, в котором проводится действие
-редактировать совместно с ..RemoveMetaDataFields</Description>
+Method of setting the metadata fields for reviews
+domName - Domain name</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>domName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	// Получаем ID домена
 	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)
 	
-	// Добавляем поля метаданных	
+	// Setting the metadata fields	
 	do ##class(%iKnow.Queries.MetadataAPI).AddField(domainId,"Title",,$$$MDDTDATE)
 	do ##class(%iKnow.Queries.MetadataAPI).AddField(domainId,"HotelId",,$$$MDDTSTRING)
 	do ##class(%iKnow.Queries.MetadataAPI).AddField(domainId,"HotelName",,$$$MDDTSTRING)
@@ -181,14 +178,13 @@ domName - имя домена, в котором проводится дейст
 
 <Method name="RemoveMetaDataFields">
 <Description>
-Удаление дополнительных полей, используется при обновлении и удалении домена, возвращает число удаленных полей
-domName - имя домена, в котором проводится действие
-редактировать совместно с ..SetMetaDataFields</Description>
+Method of deleting metadata fields from specified domain
+domName - Domain name</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>domName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	// Получаем ID домена
+
 	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)
 	
 	set tSC = ##class(%iKnow.Queries.MetadataAPI).RemoveField(domainId, "Title")
@@ -208,7 +204,7 @@ domName - имя домена, в котором проводится дейст
 
 <Method name="Free">
 <Description>
-Удаление домена со всем окружением</Description>
+Method of deleting a domain with all environment</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>domName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -216,18 +212,15 @@ domName - имя домена, в котором проводится дейст
 	kill ^iknowAVDomainFolder(domName)
 	#dim confName As %String = "Conf"_domName
 	
-	// Удаляем поля метаданных
 	do ..RemoveMetaDataFields(domName)	
-	// Удаляем словари для matching	
-	do ##class(iknowAV.util.main).DeleteDictionaries(domName)	
-	// Удаляем черные списки		
+	do ##class(iknowAV.util.main).DeleteDictionaries(domName)			
 	do ##class(iknowAV.util.main).DeleteBlackLists(domName, "GeneralBlackList")	
-	// Удаляем конфигурацию
+	
 	set tSC = ##class(iknowAV.util.main).DeleteConfiguration(confName)
 	
 	if (tSC '= $$$OK) { write "Cannot delete configuration :", confName, $System.Status.DisplayError(tSC), ! }
 	
-	// Очищаем таблицы
+	// Clearing the tables
 	&sql(DELETE FROM iknowAV_Hotels_Stat.Review WHERE DomainName = :domName)
 	&sql(DELETE FROM iknowAV_Hotels_Stat.Hotel)
 	&sql(DELETE FROM iknowAV_Hotels_Stat.ReviewStat)
@@ -244,13 +237,13 @@ domName - имя домена, в котором проводится дейст
 
 <Class name="iknowAV.Hotels.Processing.Dictionary">
 <IncludeCode>%IKPublic</IncludeCode>
-<TimeChanged>63419,44507.262778</TimeChanged>
+<TimeChanged>63419,52073.273837</TimeChanged>
 <TimeCreated>63391,62547.861221</TimeCreated>
 
 <Method name="TeachFMarkersDictionary">
 <Description>
-Метод по краткому словарю функциональных маркеров формирует полный словарь, куда входят похожие концепты (s#)
-domName - имя домена</Description>
+The method according to brief dictionary of functional markers forms complete dictionary, which includes similar concepts (s#)
+domName - Domain name</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>domName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
@@ -310,25 +303,11 @@ domName - имя домена</Description>
 				set ^fmarkers(i) = "t#"_entityValue
 				set i = i + 1
 				
-				// Determine the number of similar concepts in the domain.
-				set lbNumber = ##class(%iKnow.Queries.EntityAPI).GetSimilarCounts(domainId, entityValue)
-				
-				// The first element of the list - the number of similar concepts
-				set number = $list(lbNumber, 1)	
-				
-				// If no similar - go to next term
-				if (number = 0) 
-				{
-					set j = j + 1
-					continue
-				}
-				
 				kill similarResult				
-				// Получение id для похожих концептов
-				set status = ##class(%iKnow.Queries.EntityAPI).GetSimilar(.similarResult, domainId, entityValue, 1, 0, , ,$$$USEWORDS)	
-				// $$USENGRAMS $$$USEWORDS
-				if '($data(similarResult(1)))
-				{ 
+				// Obtain similar entities IDs
+				set status = ##class(%iKnow.Queries.EntityAPI).GetSimilar(.similarResult, domainId, entityValue, 1, 0, , ,$$$USEWORDS)
+				
+				if '($data(similarResult(1))) { 
 					set j = j + 1
 					continue 
 				}
@@ -336,17 +315,18 @@ domName - имя домена</Description>
 				set k1 = 1
 				set p1 = ""
 				
-				// Цикл по похожим концептам
+				// Loop through similar entities
 				for 
 				{	
 					set p1 = $order(similarResult(p1))	
 					quit:(p1 = "")
 					
-					// Получаем Id похожего концепта
+					// Obtain ID of the similar entity
 					set similarEntityId = $list(similarResult(k1),1)
+					
 					set similarEntity = ##class(%iKnow.Queries.EntityAPI).GetValue(domainId,similarEntityId)
-					if (similarEntity'=entityValue)			
-					{
+					
+					if (similarEntity '= entityValue) {
 						set ^fmarkers(i) = "s#"_similarEntity
 						set i = i + 1
 					}
@@ -354,8 +334,7 @@ domName - имя домена</Description>
 					set k2 = 1
 					set p2 = ""
 					
-					if '($data(result(1)))
-					{ 
+					if '($data(result(1))) { 
 						set k1 = k1 + 1
 						continue 
 					}
@@ -379,20 +358,18 @@ domName - имя домена</Description>
 
 <Method name="TeachEMarkersDictionary">
 <Description>
-Метод по краткому словарю эмоциональных маркеров формирует полный словарь, куда входят похожие концепты (s#)
-domName - имя домена</Description>
+The method according to brief dictionary of emotional markers forms complete dictionary, which includes similar concepts
+domName - Domain name</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>domName:%String</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	
 	kill ^emarkers
-	
-	// Получаем ID домена
-	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
-	
 
-	// Загрузка исходного файла со словарем эмоциональных маркеров			
+	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
+
+	// Open the file with the dictionary of emotional markers.			
 	#dim filenameIn As %String = ^iknowAVDomainFolder(domName)_"emarkers.txt"
 	write "   emarkers input file... ", filenameIn,!
 	#dim streamIn As %Stream.FileCharacter = ##class(%Stream.FileCharacter).%New()
@@ -400,56 +377,42 @@ domName - имя домена</Description>
 	
 	set i = 1
 			
-	// Цикл по строкам файла	
+	// Loop through lines of file	
 	while '(streamIn.AtEnd) 
 	{		
 		set line = streamIn.ReadLine()
 				
-		// проверка строки на комментарий (начинается с !)		
+		// Check, does a string begin with a "!" (! - comment)	
 		set checkComment = $piece(line,"!",1,1)
-		if (checkComment="")	// комментарий
+		if (checkComment="")
 		{
 			set ^emarkers(i) = line
 			set i = i + 1
 			continue
 		}
 		
-		// Обработка строки
 		set price = $piece(line,"#",1)
 		
-		// Парсим строку с терминами, разделенными запятой
 		set dList = $piece(line,"#",2)
 		set j = 1
 			
-		// Цикл по терминам в строке
+		// Loop through terms in one line
 		while $piece(dList,",",j)'="" 
 		{	
-			// $piece(dList,",",j) - текущий термин
+			
+			// $piece(dList,",",j) - current term(entity)
 			set entityValue = $piece(dList,",",j)
 			//set j = j + 1
 
 			set ^emarkers(i) = price_"#"_entityValue
 			set i = i + 1
 				
-			// Определяем число похожих концептов в домене
-			set lbNumber = ##class(%iKnow.Queries.EntityAPI).GetSimilarCounts(domainId, entityValue)
-				
-			// первый элемент списка - количество похожих концептов
-			set number = $list(lbNumber, 1)	
-				
-			// Если похожих нет - идем дальше
-			if (number = 0) 
-			{
-				set j = j + 1
-				continue
-			}
-				
-			kill similarResult				
-			// Получение id для похожих концептов
-			set status = ##class(%iKnow.Queries.EntityAPI).GetSimilar(.similarResult, domainId, entityValue, 1, 0, , ,$$$USEWORDS)	
-			// $$USENGRAMS $$$USEWORDS
-			if '($data(similarResult(1)))
-			{ 
+			kill similarResult
+							
+			// Obtain similar entities IDs
+			do ##class(%iKnow.Queries.EntityAPI).GetSimilar(.similarResult, domainId, entityValue, 1, 0, , ,$$$USEWORDS) // $$USENGRAMS $$$USEWORDS
+			
+			if '($data(similarResult(1))) { 
 				set j = j + 1
 				continue 
 			}
@@ -457,17 +420,18 @@ domName - имя домена</Description>
 			set k1 = 1
 			set p1 = ""
 				
-			// Цикл по похожим концептам
+			// Loop through similar entities
 			for 
 			{	
 				set p1 = $order(similarResult(p1))	
 				quit:(p1 = "")
 				
-				// Получаем Id похожего концепта
+				// Obtain ID of the similar entity
 				set similarEntityId = $list(similarResult(k1),1)
+				
 				set similarEntity = ##class(%iKnow.Queries.EntityAPI).GetValue(domainId,similarEntityId)
-				if (similarEntity'=entityValue)			
-				{
+				
+				if (similarEntity '= entityValue) {
 					set ^emarkers(i) = price_"#"_similarEntity
 					set i = i + 1
 				}
@@ -475,8 +439,7 @@ domName - имя домена</Description>
 				set k2 = 1
 				set p2 = ""
 					
-				if '($data(result(1)))
-				{ 
+				if '($data(result(1))) { 
 					set k1 = k1 + 1
 					continue 
 				}
@@ -501,7 +464,7 @@ domName - имя домена</Description>
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63419,43562.233674</TimeChanged>
+<TimeChanged>63419,46784.068816</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
 <Parameter name="NEUTRALLOWBORDER">
@@ -611,7 +574,7 @@ applyNegation: 1 - include in processing sentences with Negation, 0 - do not inc
 	
 	do ..ProcessSuspectAndUsefulness()
 	
-	do ..ProcessAllHotelsSents()
+	do ..ProcessAllHotelsSentences(domName)
 	
 	set endTime = $piece($horolog,",",2)
 
@@ -1464,7 +1427,7 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 ]]></Implementation>
 </Method>
 
-<Method name="ProcessAllHotelsSents">
+<Method name="ProcessAllHotelsSentences">
 <Description>
 Method of collecting all sentences for all categories of all hotels.
 domName - Domain name
@@ -1488,7 +1451,7 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 ]]></Implementation>
 </Method>
 
-<Method name="GetRandomSentence">
+<Method name="GetRandomSentences">
 <Description>
 A method that returns a random user sentences for this category in this hotel
 domName - Domain name
@@ -1529,14 +1492,13 @@ categoryName - Category Name</Description>
 			if ($listfind(alreadyInResultList, rnd) '= 0) { continue }
 		}
 		
-		set $list(topResult,*+1) = $list(allResult, rnd)
+		set $list(topResult,*+1) = ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, $list(allResult, rnd))
 		set $list(alreadyInResultList,*+1) = rnd
 		
 		set count = count + 1
 	}
 	
-	// return topResult
-	return ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, $list(topResult,1))
+	return topResult
 ]]></Implementation>
 </Method>
 
@@ -1634,12 +1596,12 @@ The Negation flag.</Description>
 
 <Class name="iknowAV.Hotels.Stat.Hotel">
 <Super>%Persistent,%XML.Adaptor</Super>
-<TimeChanged>63418,57908.022947</TimeChanged>
+<TimeChanged>63419,49899.274559</TimeChanged>
 <TimeCreated>63382,56812.800158</TimeCreated>
 
 <Property name="HotelId">
 <Description>
-ID отеля.</Description>
+Hotel ID.</Description>
 <Type>%Integer</Type>
 <Required>1</Required>
 </Property>
@@ -1651,165 +1613,165 @@ ID отеля.</Description>
 
 <Property name="HotelName">
 <Description>
-Название отеля.</Description>
+Hotel Name.</Description>
 <Type>%String</Type>
 <Required>1</Required>
 </Property>
 
 <Property name="UserRating">
 <Description>
-Авторская оценка отеля</Description>
+Author's rating of hotel.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="UserRatingComfort">
 <Description>
-Авторская оценка комфортабельности</Description>
+Author's rating of comfort.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="UserRatingLocation">
 <Description>
-Авторская оценка месторасположения</Description>
+Author's rating of location.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="UserRatingService">
 <Description>
-Авторская оценка сервиса</Description>
+Author's rating of service.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="UserRatingFood">
 <Description>
-Авторская оценка пищи</Description>
+Author's rating of food.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="UserRatingTerritory">
 <Description>
-Авторская оценка территории</Description>
+Author's rating of territory.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="UserRatingHospitality">
 <Description>
-Авторская оценка гостепреимности</Description>
+Author's rating of hospitality.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRating">
 <Description>
-Рассчитанная оценка отеля</Description>
+Estimated rating of hotel.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowEmarkersRating">
 <Description>
-Рассчитанная оценка домена без учета функциональных маркеров</Description>
+Estimated rating of hotel without excluding functional markers.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingComfort">
 <Description>
-Рассчитанная оценка комфортабельности</Description>
+Estimated rating of comfort.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingLocation">
 <Description>
-Рассчитанная оценка месторасположения</Description>
+Estimated rating of location.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingService">
 <Description>
-Рассчитанная оценка сервиса</Description>
+Estimated rating of service.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingFood">
 <Description>
-Рассчитанная оценка пищи</Description>
+Estimated rating of food.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingTerritory">
 <Description>
-Рассчитанная оценка территории</Description>
+Estimated rating of territory.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingHospitality">
 <Description>
-Рассчитанная оценка гостепреимсности</Description>
+Estimated rating of hospitality.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="ReviewsCount">
 <Description>
-Количество отзывов</Description>
+Number of reviews.</Description>
 <Type>%Integer</Type>
 </Property>
 
 <Property name="NegativeReviewsPCT">
 <Description>
-Процент негативных отзывов</Description>
+Negative reviews percent.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="PositiveReviewsPCT">
 <Description>
-Процент позитивных отзывов</Description>
+Positive reviews percent.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="NeutralReviewsPCT">
 <Description>
-Процент ненейтральных отзывов</Description>
+Neutral reviews percent.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="SentComfort">
 <Description>
-Список предложений из отзывов, характеризующих комфортабельность отеля.</Description>
+A list of sentences from the reviews characterizing comfort of the hotel.</Description>
 <Type>%List</Type>
 </Property>
 
 <Property name="SentFood">
 <Description>
-Список предложений из отзывов, характеризующих питание в отеле.</Description>
+A list of sentences from the reviews characterizing food in the hotel.</Description>
 <Type>%List</Type>
 </Property>
 
 <Property name="SentHospitality">
 <Description>
-Список предложений из отзывов, характеризующих гостеприимство отеля.</Description>
+A list of sentences from the reviews characterizing hospitality of the hotel.</Description>
 <Type>%List</Type>
 </Property>
 
 <Property name="SentLocation">
 <Description>
-Список предложений из отзывов, характеризующих месторасположение отеля.</Description>
+A list of sentences from the reviews characterizing location of the hotel.</Description>
 <Type>%List</Type>
 </Property>
 
 <Property name="SentService">
 <Description>
-Список предложений из отзывов, характеризующих уровень сервиса в отеле.</Description>
+A list of sentences from the reviews characterizing service in the hotel.</Description>
 <Type>%List</Type>
 </Property>
 
 <Property name="SentTerritory">
 <Description>
-Список предложений из отзывов, характеризующих территорию отеля.</Description>
+A list of sentences from the reviews characterizing territory of the hotel.</Description>
 <Type>%List</Type>
 </Property>
 
 <Method name="GetFinalText">
 <Description>
-Метод получения финальной фразы по отелю
-hotelId - ID отеля</Description>
+The method of obtaining the final phrase about the hotel.
+hotelId - Hotel ID</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>hotelId:%Integer</FormalSpec>
 <ReturnType>%String</ReturnType>
@@ -1835,7 +1797,7 @@ hotelId - ID отеля</Description>
 	set serviceText = ""
 	set extraText = ""
 	
-	// Получаем курсор SQL-запросом
+	// Obtain the cursor
 	&sql(DECLARE crsr CURSOR FOR
 	     SELECT id, iKnowRating, iKnowEmarkersRating, iKnowRatingComfort, iKnowRatingFood,
 	            iKnowRatingHospitality, iKnowRatingLocation, iKnowRatingService, iKnowRatingTerritory 
@@ -1845,11 +1807,11 @@ hotelId - ID отеля</Description>
 	     WHERE HotelId = :hotelId
 	)	
 	
-	// Открываем курсор 
+	// Open cursor
 	&sql(open crsr)
 	&sql(fetch crsr)
 	
-	// Идем по курсору. Если оценка по категории > 3 - она позитивная, иначе негативная
+	// Loop through cursor.
 	while (SQLCODE '= 100)
 	{
 		set reviewCount = reviewCount + 1
@@ -1884,7 +1846,7 @@ hotelId - ID отеля</Description>
 		return "Нет отзывов по данному отелю."
 	}
 	
-	// Получаем название отеля
+	// Obtain Hotel name.
 	&sql(SELECT HotelName INTO :hotelName FROM iknowAV_Hotels_Stat.Hotel WHERE HotelId = :hotelId)
 	
 	// Получаем обращение, в зависимости от числа
@@ -2162,12 +2124,12 @@ hotelId - ID отеля</Description>
 
 <Class name="iknowAV.Hotels.Stat.HotelStat">
 <Super>%Persistent</Super>
-<TimeChanged>63391,53508.99375</TimeChanged>
+<TimeChanged>63419,50050.443133</TimeChanged>
 <TimeCreated>63389,67672.250289</TimeCreated>
 
 <Property name="HotelId">
 <Description>
-ID отеля</Description>
+Hotel ID</Description>
 <Type>%Integer</Type>
 <Required>1</Required>
 </Property>
@@ -2179,49 +2141,49 @@ ID отеля</Description>
 
 <Property name="HotelName">
 <Description>
-Название отеля.</Description>
+Hotel Name</Description>
 <Type>%String</Type>
 <Required>1</Required>
 </Property>
 
 <Property name="PositiveMarkersSum">
 <Description>
-Сумма позитивных маркеров в отзыве.</Description>
+Positive markers sum in the review.</Description>
 <Type>%Numeric</Type>
 <InitialExpression>0</InitialExpression>
 </Property>
 
 <Property name="NegativeMarkersSum">
 <Description>
-Сумма негативных маркеров в отзыве.</Description>
+Negative markers sum in the review.</Description>
 <Type>%Numeric</Type>
 <InitialExpression>0</InitialExpression>
 </Property>
 
 <Property name="EmotionalSum">
 <Description>
-Общая сумма всех эмоциональных маркеров.</Description>
+Total emotional markers sum in the review.</Description>
 <Type>%Numeric</Type>
 <InitialExpression>0</InitialExpression>
 </Property>
 
 <Property name="NumberOfSentences">
 <Description>
-Количество предложений в отзыве</Description>
+Number of sentences in the review.</Description>
 <Type>%Numeric</Type>
 <InitialExpression>0</InitialExpression>
 </Property>
 
 <Property name="NumberOfEntities">
 <Description>
-Количество сущностей в отзыве.</Description>
+Number of entities in the review.</Description>
 <Type>%Numeric</Type>
 <InitialExpression>0</InitialExpression>
 </Property>
 
 <Property name="EmotionalSaturation">
 <Description>
-Эмоциональная насыщенность отзыва.</Description>
+Emotional saturation of the review.</Description>
 <Type>%Numeric</Type>
 <Calculated>1</Calculated>
 <InitialExpression>0</InitialExpression>
@@ -2231,7 +2193,7 @@ ID отеля</Description>
 
 <Property name="PositiveEmotionalSaturation">
 <Description>
-Позитивная эмоциональная насыщенность отзыва.</Description>
+Positive emotional saturation of the review.</Description>
 <Type>%Numeric</Type>
 <Calculated>1</Calculated>
 <InitialExpression>0</InitialExpression>
@@ -2241,7 +2203,7 @@ ID отеля</Description>
 
 <Property name="NegativeEmotionalSaturation">
 <Description>
-Негативная эмоциональная насыщенность отзыва.</Description>
+Negative emotional saturation of the review.</Description>
 <Type>%Numeric</Type>
 <Calculated>1</Calculated>
 <InitialExpression>0</InitialExpression>
@@ -2257,8 +2219,6 @@ ID отеля</Description>
 <IndexLocation>^iknowAV.Hotels.Stat.HotelStatI</IndexLocation>
 <StreamLocation>^iknowAV.Hotels.Stat.HotelStatS</StreamLocation>
 <Data name="HotelStatDefaultData">
-<Structure>listnode</Structure>
-<Subscript/>
 <Value name="1">
 <Value>%%CLASSNAME</Value>
 </Value>
@@ -2290,60 +2250,60 @@ ID отеля</Description>
 
 <Class name="iknowAV.Hotels.Stat.ProcessingResult">
 <Super>%Persistent</Super>
-<TimeChanged>63391,53508.961104</TimeChanged>
+<TimeChanged>63419,50216.307879</TimeChanged>
 <TimeCreated>63389,70281.963334</TimeCreated>
 
 <Property name="DomainName">
 <Description>
-Имя домена</Description>
+Domain name</Description>
 <Type>%String</Type>
 </Property>
 
 <Property name="EDictionarySize">
 <Description>
-Размер словаря эмоциональных маркеров</Description>
+Emarkers dictionary size.</Description>
 <Type>%Integer</Type>
 </Property>
 
 <Property name="FDictionarySize">
 <Description>
-Размер словаря функциональных маркеров</Description>
+Fmarkers dictionary size</Description>
 <Type>%Integer</Type>
 </Property>
 
 <Property name="EmotionalIndex">
 <Description>
-Эмоциональный индекс (Отношениие Средней Насыщенности Отзывов к размеру словаря)</Description>
+Emotional index (Ratio of the average saturation of reviews to the size of the dictionary.)</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="PositiveIndex">
 <Description>
-Положительный эмоциональный индекс</Description>
+Positive emotional index</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="NegativeIndex">
 <Description>
-Отрицательный эмоциональный индекс</Description>
+Negative emotional index</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="NumberOfSources">
 <Description>
-Количество отзывов</Description>
+Number of sources</Description>
 <Type>%Integer</Type>
 </Property>
 
 <Property name="Negation">
 <Description>
-Флаг Negation (учитывались ли предложения с NEGATION)</Description>
+The Negation flag</Description>
 <Type>%Boolean</Type>
 </Property>
 
 <Property name="ProcessingDateTime">
 <Description>
-Время окончания обработки</Description>
+Timestamp of processing endtime.</Description>
 <Type>%TimeStamp</Type>
 </Property>
 
@@ -2355,8 +2315,6 @@ ID отеля</Description>
 <IndexLocation>^iknowAV.Ho4531.ProcessingRCBCAI</IndexLocation>
 <StreamLocation>^iknowAV.Ho4531.ProcessingRCBCAS</StreamLocation>
 <Data name="ProcessingResultDefaultData">
-<Structure>listnode</Structure>
-<Subscript/>
 <Value name="1">
 <Value>%%CLASSNAME</Value>
 </Value>
@@ -2394,19 +2352,19 @@ ID отеля</Description>
 
 <Class name="iknowAV.Hotels.Stat.Review">
 <Super>%Persistent</Super>
-<TimeChanged>63417,52793.396581</TimeChanged>
+<TimeChanged>63419,50374.722354</TimeChanged>
 <TimeCreated>63378,59046.196236</TimeCreated>
 
 <Property name="DomainName">
 <Description>
-Имя домена, в котором находится отзыв</Description>
+Domain name</Description>
 <Type>%String</Type>
 <Required>1</Required>
 </Property>
 
 <Property name="SourceId">
 <Description>
-ID отзыва</Description>
+Source ID</Description>
 <Type>%Integer</Type>
 <Required>1</Required>
 </Property>
@@ -2419,89 +2377,91 @@ ID отзыва</Description>
 
 <Property name="AuthorRating">
 <Description>
-Авторская оценка отеля</Description>
+Author's rating of hotel.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="AuthorRatingComfort">
 <Description>
-Авторская оценка комфортабельности</Description>
+Author's rating of comfort.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="AuthorRatingLocation">
 <Description>
-Авторская оценка месторасположения</Description>
+Author's rating of location.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="AuthorRatingService">
 <Description>
-Авторская оценка сервиса</Description>
+Author's rating of service.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="AuthorRatingFood">
 <Description>
-Авторская оценка пищи</Description>
+Author's rating of food.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="AuthorRatingTerritory">
 <Description>
-Авторская оценка территории</Description>
+Author's rating of territory.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="AuthorRatingHospitality">
 <Description>
-Авторская оценка гостеприимности</Description>
+Author's rating of hospitality.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRating">
 <Description>
-Рассчитанная оценка отеля</Description>
+Estimated rating of hotel.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowEmarkersRating">
+<Description>
+Estimated rating of hotel without excluding functional markers.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingComfort">
 <Description>
-Рассчитанная оценка комфортабельности</Description>
+Estimated rating of comfort.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingLocation">
 <Description>
-Рассчитанная оценка месторасположения</Description>
+Estimated rating of location.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingService">
 <Description>
-Рассчитанная оценка сервиса</Description>
+Estimated rating of service.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingFood">
 <Description>
-Рассчитанная оценка пищи</Description>
+Estimated rating of food.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingTerritory">
 <Description>
-Рассчитанная оценка территории</Description>
+Estimated rating of territory.</Description>
 <Type>%Numeric</Type>
 </Property>
 
 <Property name="iKnowRatingHospitality">
 <Description>
-Рассчитанная оценка гостеприимности</Description>
+Estimated rating of hospitality.</Description>
 <Type>%Numeric</Type>
 </Property>
 
@@ -2597,12 +2557,12 @@ ID отзыва</Description>
 
 <Class name="iknowAV.Hotels.Stat.ReviewStat">
 <Super>%Persistent</Super>
-<TimeChanged>63391,53509.264065</TimeChanged>
+<TimeChanged>63419,50496.132216</TimeChanged>
 <TimeCreated>63389,61279.232043</TimeCreated>
 
 <Property name="ReviewId">
 <Description>
-ID отзыва (Совпадает с Source ID) </Description>
+Review ID</Description>
 <Type>%Integer</Type>
 <Required>1</Required>
 </Property>
@@ -2614,62 +2574,62 @@ ID отзыва (Совпадает с Source ID) </Description>
 
 <Property name="DomainName">
 <Description>
-Название домена.</Description>
+Domain Name</Description>
 <Type>%String</Type>
 <Required>1</Required>
 </Property>
 
 <Property name="HotelId">
 <Description>
-ID отеля.</Description>
+Hotel ID</Description>
 <Type>%Integer</Type>
 <Required>1</Required>
 </Property>
 
 <Property name="HotelName">
 <Description>
-Имя отеля</Description>
+Hotel Name</Description>
 <Type>%String</Type>
 </Property>
 
 <Property name="PositiveMarkersSum">
 <Description>
-Сумма позитивных маркеров в отзыве.</Description>
+Positive markers sum in the review.</Description>
 <Type>%Integer</Type>
 <InitialExpression>0</InitialExpression>
 </Property>
 
 <Property name="NegativeMarkersSum">
 <Description>
-Сумма негативных маркеров в отзыве.</Description>
+Negative markers sum in the review.</Description>
 <Type>%Integer</Type>
 <InitialExpression>0</InitialExpression>
 </Property>
 
 <Property name="EmotionalSum">
 <Description>
-Общая сумма всех эмоциональных маркеров.</Description>
+Total emotional markers sum in the review.</Description>
 <Type>%Integer</Type>
 <InitialExpression>0</InitialExpression>
 </Property>
 
 <Property name="NumberOfSentences">
 <Description>
-Количество предложений в отзыве</Description>
+Number of sentences in the review.</Description>
 <Type>%Integer</Type>
 <InitialExpression>0</InitialExpression>
 </Property>
 
 <Property name="NumberOfEntities">
 <Description>
-Количество сущностей в отзыве.</Description>
+Number of entities in the review.</Description>
 <Type>%Integer</Type>
 <InitialExpression>0</InitialExpression>
 </Property>
 
 <Property name="EmotionalSaturation">
 <Description>
-Эмоциональная насыщенность отзыва.</Description>
+Emotional saturation of the review.</Description>
 <Type>%Numeric</Type>
 <Calculated>1</Calculated>
 <InitialExpression>0</InitialExpression>
@@ -2679,7 +2639,7 @@ ID отеля.</Description>
 
 <Property name="PositiveEmotionalSaturation">
 <Description>
-Позитивная эмоциональная насыщенность отзыва.</Description>
+Positive emotional saturation of the review.</Description>
 <Type>%Numeric</Type>
 <Calculated>1</Calculated>
 <InitialExpression>0</InitialExpression>
@@ -2689,7 +2649,7 @@ ID отеля.</Description>
 
 <Property name="NegativeEmotionalSaturation">
 <Description>
-Негативная эмоциональная насыщенность отзыва.</Description>
+Negative emotional saturation of the review.</Description>
 <Type>%Numeric</Type>
 <Calculated>1</Calculated>
 <InitialExpression>0</InitialExpression>
@@ -2705,8 +2665,6 @@ ID отеля.</Description>
 <IndexLocation>^iknowAV.Hotels4531.ReviewStatI</IndexLocation>
 <StreamLocation>^iknowAV.Hotels4531.ReviewStatS</StreamLocation>
 <Data name="ReviewStatDefaultData">
-<Structure>listnode</Structure>
-<Subscript/>
 <Value name="1">
 <Value>%%CLASSNAME</Value>
 </Value>
@@ -2744,7 +2702,7 @@ ID отеля.</Description>
 
 <Class name="iknowAV.Hotels.Stat.Statistics">
 <Super>%RegisteredObject</Super>
-<TimeChanged>63415,38458.778916</TimeChanged>
+<TimeChanged>63419,50520.002957</TimeChanged>
 <TimeCreated>63393,40728.632605</TimeCreated>
 
 <Method name="Mean">
@@ -2758,8 +2716,7 @@ ID отеля.</Description>
 	
 	if (length = 0) { return ""}
 	
-	for i=1:1:length
-	{
+	for i=1:1:length {
 		set sum = sum + $list(valueList, i)
 	}
 	
@@ -2778,8 +2735,7 @@ ID отеля.</Description>
 	
 	if (length = 0) { return ""}
 	
-	for i=1:1:length  
-	{
+	for i=1:1:length {
 		set sum = sum + $zpower(($list(valueList,i) - mean), 2)
 	}	
 	
