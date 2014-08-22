@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-21 10:11:19">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-22 16:27:41">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
 <TimeChanged>63419,51925.480406</TimeChanged>
@@ -464,7 +464,7 @@ domName - Domain name</Description>
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63419,46784.068816</TimeChanged>
+<TimeChanged>63421,59202.994078</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
 <Parameter name="NEUTRALLOWBORDER">
@@ -524,46 +524,19 @@ applyNegation: 1 - include in processing sentences with Negation, 0 - do not inc
 	
 	set j = 1
 	
-	write !, "Processing sentences.. Please wait.", !
-	for m=1:1:numberOfGroups {
-		
-		set i = 1
-		kill srcList
-		
-		while ((i <= 500) && (j <= numberOfSources)) 
-		{
-			set $list(srcList, *+1) = j
-			set i = i + 1 
-			set j = j + 1
-		}
-		
-		
-		// Fill the Sentence table with counts of emotional markers
-		do ..BuildProcessingSentences(domName, srcList)
+	write !, "Processing Emotional markers..", !
 
-		// Processing Negation
-		do ..ProcessNegationSentences(domName, srcList)
-		
-	}
+	// Fill the Sentence table with counts of emotional markers
+	do ..BuildProcessingSentences(domName)
+
+	// Processing Negation
+	do ..ProcessNegationSentences(domName)
 	
 	set j = 1
 	kill ^review
 	
-	for m=1:1:numberOfGroups {
-		
-		set i = 1
-		kill srcList
-		
-		while ((i <= 500) && (j <= numberOfSources)) {
-			set $list(srcList, *+1) = j
-			set i = i + 1 
-			set j = j + 1
-		}
-		
-		write !, "Processing SourceIDs ", ((m-1)*500+1), " - ", j-1, " of ", numberOfSources, !
-		do ..ProcessSourceBunch(domName, srcList, applyNegation)
-		
-	}
+	write !, "Processing Functional markers..", !
+	do ..ProcessSourceBunch(domName, applyNegation)
 	
 	// Processing the sources to obtain the final estimates of hotels
 	set tSC = ..ProcessHotelsGrades()
@@ -606,10 +579,10 @@ domName - Domain name.
 srcId - Source ID.
 applyNegation: 1 - include in processing sentences with Negation, 0 - do not include.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,srcList:%List,applyNegation:%Boolean=0</FormalSpec>
+<FormalSpec>domName:%String,applyNegation:%Boolean=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	set tSC = ..ProcessFunctionalMarkers(domName, srcList, applyNegation)
+	set tSC = ..ProcessFunctionalMarkers(domName, applyNegation)
 	
 	return tSC
 ]]></Implementation>
@@ -650,7 +623,7 @@ srcId - Source ID.</Description>
 	
 		kill result	
 		// Obtain a list of sentences in the sources containing this entity
-		do ##class(%iKnow.Queries.SentenceAPI).GetByEntityIds(.result, domainId, $lb(entityId), srcList, 1, 0)	
+		do ##class(%iKnow.Queries.SentenceAPI).GetByEntityIds(.result, domainId, $lb(entityId),, 1, 0)	
 		
 		if '($data(result(1))) { continue }			
 		
@@ -705,13 +678,12 @@ srcId - Source ID</Description>
 <Implementation><![CDATA[
 
 	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
-	set number = ##class(%iKnow.Queries.SentenceAPI).GetCountBySource(domainId, srcList)
 	
-	set length = $listlength(srcList)
+	set length = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId)
 	
 	for i=1:1:length {
 		
-		set srcId = $list(srcList, i)
+		set srcId = i
 		
 		// Get the list of attribute values of sentences.
 		do ##class(%iKnow.Queries.SourceAPI).GetAttributes(.att, domainId, srcId, 1, 0, "", $$$IKATTLVLSENT)
@@ -752,20 +724,20 @@ domName - Domain name
 srcId - Source ID
 applyNegation: 1 - include in processing sentences with Negation, 0 - do not include.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,srcList:%List,applyNegation:%Boolean=0</FormalSpec>
+<FormalSpec>domName:%String,applyNegation:%Boolean=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 
 	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
 	
-	set length = $listlength(srcList)
+	set length = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId)
 			
 	// The functional marker's category.
 	set markerCategory = ""
 	
 	for i=1:1:length {
 		
-		set srcId = $li(srcList,i)
+		set srcId = i
 		
 		// Positive and negative values ​​within the category.
 		set ^review(srcId,"positive")  = 0
@@ -809,7 +781,7 @@ applyNegation: 1 - include in processing sentences with Negation, 0 - do not inc
 		elseif (stype = "i") {
 			
 			for i=1:1:length {
-				set srcId = $li(srcList,i)
+				set srcId = i
 				kill ^review(srcId, "grade")
 			}
 			
@@ -818,7 +790,7 @@ applyNegation: 1 - include in processing sentences with Negation, 0 - do not inc
 				
 				for i=1:1:length {
 					
-					set srcId = $li(srcList,i)
+					set srcId = i
 					
 					if ((^review(srcId,"negative") = 0) && (^review(srcId,"positive") = 0)) { 
 						kill ^review(srcId, "grade")	
@@ -870,7 +842,7 @@ applyNegation: 1 - include in processing sentences with Negation, 0 - do not inc
 			kill result
 			
 			// Obtain a list of sentences in the sources containing this entity					
-			set st = ##class(%iKnow.Queries.SentenceAPI).GetByEntityIds(.result, domainId, $lb(entityId), srcList, 1, 0)			
+			set st = ##class(%iKnow.Queries.SentenceAPI).GetByEntityIds(.result, domainId, $lb(entityId),, 1, 0)			
 			
 			set p2 = ""
 			
@@ -911,7 +883,7 @@ applyNegation: 1 - include in processing sentences with Negation, 0 - do not inc
 	
 	for i=1:1:length {
 	
-		set srcId = $li(srcList,i)
+		set srcId = i
 		
 		// If we have at least one estimated category, estimate the general grade
 		if (^review(srcId,"gradedCategoryCount") > 0) {
@@ -1352,62 +1324,51 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 	do ##class(%iKnow.Queries.SourceAPI).GetByDomain(.srcResult,domainId,1,0,filter)
 	
 	// Obtain the number of Sources (filtered by hotel)
-	set numberOfReviews = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId,filter)
-
-	for i=1:1:numberOfReviews
-	{
-		set srcId = $list(srcResult(i),1)
-
-		// Obtain Review ID from table
-		&sql(SELECT ID INTO :id FROM  iknowAV_Hotels_Stat.Review WHERE DomainName = :domName)
-		
-		if (SQLCODE = 0) {	
-			set review = ##class(iknowAV.Hotels.Stat.Review).%OpenId(id)	
-		}
-		else {
-			write "Error: source " + srcId + " not found", !
-			return $$$ERROR()
-		}
+	set numberOfReviews = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId, filter)
 	
-		kill result
-					
-		set iKnowCategory = "iKnowRating"_categoryName			
-						
-		// Obtain a list of sentences in the sources containing this entity						
-		set st = ##class(%iKnow.Queries.SentenceAPI).GetByEntityIds(.result, domainId, $lb(mostSpreadEntityId), $lb(srcId), 1, 0)					
-
-		set p2 = ""
-						
-		if '($data(result(1))) { continue }
-						
-		// Loop through the sentences contained most spread Entity
-		for 
-		{					
-			set p2 = $order(result(p2))	
-			quit:(p2 = "")
-				
-			set sentenceId = $list(result(p2), 3)	
-			
-			// Obtain Negation of current sentence
-			&sql(SELECT Negation INTO :negation FROM  iknowAV_Hotels_Processing.Sentence WHERE SentenceId = :sentenceId AND DomainName = :domName)
-			
-			if (SQLCODE = 100) { continue }
-			if (negation = -1) { continue } 
-			
-			set currentSentence = ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, sentenceId)
-
-			set sentenceLength = $length(currentSentence, " ")
-			
-			if (sentenceLength < numberOfWordsInSentence) {
-				set $list(allResult,*+1) = sentenceId
-			}
-								
-		 }	// for (Sentence)
-		
+	for i=1:1:numberOfReviews {
+		set $list(srcIdList, *+1) = $list(srcResult(i), 1)	
 	}
+	
+	set srcIdFilter = ##class(%iKnow.Filters.SourceIdFilter).%New(domainId, srcIdList)
+	
+	kill result
+					
+	set iKnowCategory = "iKnowRating"_categoryName			
+	
+	
+	
+	// Obtain a list of sentences in the source containing this entity						
+	set st = ##class(%iKnow.Queries.SentenceAPI).GetByEntityIds(.result, domainId, $lb(mostSpreadEntityId), srcIdFilter, 1, 0)					
+	// ^^^ - Now it does not working correctly
+
+	set p2 = ""
+							
+	// Loop through the sentences contained most spread Entity
+	for 
+	{					
+		set p2 = $order(result(p2))	
+		quit:(p2 = "")
+				
+		set sentenceId = $list(result(p2), 3)	
 		
+		// Obtain Negation of current sentence
+		&sql(SELECT Negation INTO :negation FROM  iknowAV_Hotels_Processing.Sentence WHERE SentenceId = :sentenceId AND DomainName = :domName)
+		
+		if (SQLCODE = 100) { continue }
+		if (negation = -1) { continue } 
+		
+		set currentSentence = ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, sentenceId)
+
+		set sentenceLength = $length(currentSentence, " ")
+		
+		if (sentenceLength < numberOfWordsInSentence) {
+			set $list(allResult,*+1) = sentenceId
+		}
+							
+	 }	// for (Sentence)
+	
 	&sql(SELECT id INTO :hotelObjId FROM iknowAV_Hotels_Stat.Hotel WHERE HotelId = :hotelId)
-		
 
 	if (SQLCODE = 0) {
 		set hotel = ##class(iknowAV.Hotels.Stat.Hotel).%OpenId(hotelObjId)
@@ -1437,7 +1398,7 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 		&sql(SELECT %DLIST(HotelId), %DLIST(id) INTO :hotelIdList, :idList FROM iknowAV_Hotels_Stat.Hotel)
-		
+
 		set length = $listlength(hotelIdList)
 		
 		for i=1:1:length {
@@ -1453,13 +1414,13 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 
 <Method name="GetRandomSentences">
 <Description>
-A method that returns a random user sentences for this category in this hotel
+A method that returns a random user sentences for specifeied category in specified hotel
 domName - Domain name
 hotelId - Hotel ID
 categoryName - Category Name</Description>
 <ClassMethod>1</ClassMethod>
 <FormalSpec>domName:%String,hotelId:%Integer,categoryName:%String,numberOfResults:%Integer=1</FormalSpec>
-<ReturnType>%String</ReturnType>
+<ReturnType>%List</ReturnType>
 <Implementation><![CDATA[
 	&sql(SELECT id INTO :hotelObjId FROM iknowAV_Hotels_Stat.Hotel WHERE HotelId = :hotelId)
 	
@@ -1513,7 +1474,7 @@ categoryName - Category Name</Description>
 
 <Class name="iknowAV.Hotels.Processing.Sentence">
 <Super>%Persistent</Super>
-<TimeChanged>63419,43630.016949</TimeChanged>
+<TimeChanged>63420,59462.155137</TimeChanged>
 <TimeCreated>63382,57101.968597</TimeCreated>
 
 <Property name="SentenceId">
@@ -1558,6 +1519,13 @@ The Negation flag.</Description>
 
 <Property name="SrcId">
 <Type>%Integer</Type>
+</Property>
+
+<Property name="Review">
+<Type>iknowAV.Hotels.Stat.Review</Type>
+<Cardinality>many</Cardinality>
+<Inverse>Hotel</Inverse>
+<Relationship>1</Relationship>
 </Property>
 
 <Storage name="Default">
@@ -2352,7 +2320,7 @@ Timestamp of processing endtime.</Description>
 
 <Class name="iknowAV.Hotels.Stat.Review">
 <Super>%Persistent</Super>
-<TimeChanged>63419,50374.722354</TimeChanged>
+<TimeChanged>63420,59465.113642</TimeChanged>
 <TimeCreated>63378,59046.196236</TimeCreated>
 
 <Property name="DomainName">
@@ -2479,6 +2447,17 @@ Estimated rating of hospitality.</Description>
 <InitialExpression>0</InitialExpression>
 </Property>
 
+<Property name="Hotel">
+<Type>iknowAV.Hotels.Processing.Sentence</Type>
+<Cardinality>one</Cardinality>
+<Inverse>Review</Inverse>
+<Relationship>1</Relationship>
+</Property>
+
+<Index name="HotelIndex">
+<Properties>Hotel</Properties>
+</Index>
+
 <Storage name="Default">
 <Type>%Library.CacheStorage</Type>
 <DataLocation>^iknowAV.Hotels.Stat.ReviewD</DataLocation>
@@ -2549,6 +2528,9 @@ Estimated rating of hospitality.</Description>
 </Value>
 <Value name="21">
 <Value>Usefulness</Value>
+</Value>
+<Value name="22">
+<Value>Hotel</Value>
 </Value>
 </Data>
 </Storage>
