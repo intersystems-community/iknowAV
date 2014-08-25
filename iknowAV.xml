@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-25 17:37:05">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-25 18:06:38">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
-<TimeChanged>63424,54752.078625</TimeChanged>
+<TimeChanged>63424,65156.99776</TimeChanged>
 <TimeCreated>63378,61408.462569</TimeCreated>
 
 <Method name="Load">
@@ -108,7 +108,7 @@ Load method try to loading Reviews with ID from 1 to 1000</Description>
 		set AuthorRatingLocation = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "AuthorRatingLocation", externalId)
 		set AuthorRatingService = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "AuthorRatingService", externalId)
 		set AuthorRatingTerritory = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "AuthorRatingTerritory", externalId)
-		set TravelDAte = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "TravelDate", externalId)
+		set TravelDate = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "TravelDate", externalId)
 	
 		set hotelID = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "HotelId", externalId)						
 		set SourceId = i
@@ -156,7 +156,7 @@ domName - Domain name</Description>
 	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)
 	
 	// Setting the metadata fields	
-	do ##class(%iKnow.Queries.MetadataAPI).AddField(domainId,"Title",,$$$MDDTDATE)
+	do ##class(%iKnow.Queries.MetadataAPI).AddField(domainId,"Title",,$$$MDDTSTRING)
 	do ##class(%iKnow.Queries.MetadataAPI).AddField(domainId,"HotelId",,$$$MDDTSTRING)
 	do ##class(%iKnow.Queries.MetadataAPI).AddField(domainId,"HotelName",,$$$MDDTSTRING)
 	do ##class(%iKnow.Queries.MetadataAPI).AddField(domainId,"Country",,$$$MDDTSTRING)	
