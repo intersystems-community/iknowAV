@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-22 16:27:41">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-25 12:40:16">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
-<TimeChanged>63419,51925.480406</TimeChanged>
+<TimeChanged>63424,43377.761558</TimeChanged>
 <TimeCreated>63378,61408.462569</TimeCreated>
 
 <Method name="Load">
@@ -464,7 +464,7 @@ domName - Domain name</Description>
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63421,59202.994078</TimeChanged>
+<TimeChanged>63424,42013.589153</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
 <Parameter name="NEUTRALLOWBORDER">
@@ -510,20 +510,6 @@ applyNegation: 1 - include in processing sentences with Negation, 0 - do not inc
 	// Clearing old results
 	do ..ClearStats(domName)
 	do ..ClearSentences()
-
-	set numberOfSources = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId)
-	
-	// Calculate the number of groups
-	set numberOfGroups = numberOfSources \ 500
-	// Calculate the modulo
-	set diff = numberOfSources # 500
-	
-	if (diff '= 0) {
-		set numberOfGroups = numberOfGroups + 1
-	}
-	
-	set j = 1
-	
 	write !, "Processing Emotional markers..", !
 
 	// Fill the Sentence table with counts of emotional markers
@@ -547,7 +533,7 @@ applyNegation: 1 - include in processing sentences with Negation, 0 - do not inc
 	
 	do ..ProcessSuspectAndUsefulness()
 	
-	do ..ProcessAllHotelsSentences(domName)
+	// do ..ProcessAllHotelsSentences(domName)
 	
 	set endTime = $piece($horolog,",",2)
 
@@ -1474,7 +1460,7 @@ categoryName - Category Name</Description>
 
 <Class name="iknowAV.Hotels.Processing.Sentence">
 <Super>%Persistent</Super>
-<TimeChanged>63420,59462.155137</TimeChanged>
+<TimeChanged>63424,42928.747061</TimeChanged>
 <TimeCreated>63382,57101.968597</TimeCreated>
 
 <Property name="SentenceId">
@@ -1521,13 +1507,6 @@ The Negation flag.</Description>
 <Type>%Integer</Type>
 </Property>
 
-<Property name="Review">
-<Type>iknowAV.Hotels.Stat.Review</Type>
-<Cardinality>many</Cardinality>
-<Inverse>Hotel</Inverse>
-<Relationship>1</Relationship>
-</Property>
-
 <Storage name="Default">
 <Type>%Library.CacheStorage</Type>
 <DataLocation>^iknowAV.Hotels.PrE05F.SentenceD</DataLocation>
@@ -1564,7 +1543,7 @@ The Negation flag.</Description>
 
 <Class name="iknowAV.Hotels.Stat.Hotel">
 <Super>%Persistent,%XML.Adaptor</Super>
-<TimeChanged>63419,49899.274559</TimeChanged>
+<TimeChanged>63424,42624.865773</TimeChanged>
 <TimeCreated>63382,56812.800158</TimeCreated>
 
 <Property name="HotelId">
@@ -1585,6 +1564,10 @@ Hotel Name.</Description>
 <Type>%String</Type>
 <Required>1</Required>
 </Property>
+
+<Index name="HotelNameIndex">
+<Properties>HotelName</Properties>
+</Index>
 
 <Property name="UserRating">
 <Description>
@@ -2001,6 +1984,8 @@ hotelId - Hotel ID</Description>
 <IndexLocation>^iknowAV.Hotels.Stat.HotelI</IndexLocation>
 <StreamLocation>^iknowAV.Hotels.Stat.HotelS</StreamLocation>
 <Data name="HotelDefaultData">
+<Structure>listnode</Structure>
+<Subscript/>
 <Value name="1">
 <Value>%%CLASSNAME</Value>
 </Value>
@@ -2320,7 +2305,7 @@ Timestamp of processing endtime.</Description>
 
 <Class name="iknowAV.Hotels.Stat.Review">
 <Super>%Persistent</Super>
-<TimeChanged>63420,59465.113642</TimeChanged>
+<TimeChanged>63424,42594.317916</TimeChanged>
 <TimeCreated>63378,59046.196236</TimeCreated>
 
 <Property name="DomainName">
@@ -2447,17 +2432,6 @@ Estimated rating of hospitality.</Description>
 <InitialExpression>0</InitialExpression>
 </Property>
 
-<Property name="Hotel">
-<Type>iknowAV.Hotels.Processing.Sentence</Type>
-<Cardinality>one</Cardinality>
-<Inverse>Review</Inverse>
-<Relationship>1</Relationship>
-</Property>
-
-<Index name="HotelIndex">
-<Properties>Hotel</Properties>
-</Index>
-
 <Storage name="Default">
 <Type>%Library.CacheStorage</Type>
 <DataLocation>^iknowAV.Hotels.Stat.ReviewD</DataLocation>
@@ -2466,6 +2440,8 @@ Estimated rating of hospitality.</Description>
 <IndexLocation>^iknowAV.Hotels.Stat.ReviewI</IndexLocation>
 <StreamLocation>^iknowAV.Hotels.Stat.ReviewS</StreamLocation>
 <Data name="ReviewDefaultData">
+<Structure>listnode</Structure>
+<Subscript/>
 <Value name="1">
 <Value>%%CLASSNAME</Value>
 </Value>
@@ -2528,9 +2504,6 @@ Estimated rating of hospitality.</Description>
 </Value>
 <Value name="21">
 <Value>Usefulness</Value>
-</Value>
-<Value name="22">
-<Value>Hotel</Value>
 </Value>
 </Data>
 </Storage>
