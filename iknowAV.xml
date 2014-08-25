@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-25 12:40:16">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-25 17:37:05">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
-<TimeChanged>63424,43377.761558</TimeChanged>
+<TimeChanged>63424,54752.078625</TimeChanged>
 <TimeCreated>63378,61408.462569</TimeCreated>
 
 <Method name="Load">
@@ -108,6 +108,7 @@ Load method try to loading Reviews with ID from 1 to 1000</Description>
 		set AuthorRatingLocation = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "AuthorRatingLocation", externalId)
 		set AuthorRatingService = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "AuthorRatingService", externalId)
 		set AuthorRatingTerritory = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "AuthorRatingTerritory", externalId)
+		set TravelDAte = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "TravelDate", externalId)
 	
 		set hotelID = ##class(%iKnow.Queries.MetadataAPI).GetValue(domId, "HotelId", externalId)						
 		set SourceId = i
@@ -115,9 +116,9 @@ Load method try to loading Reviews with ID from 1 to 1000</Description>
 		// Insert/update record in iknowAV_Hotels_Stat.Review
 		&sql(INSERT OR UPDATE INTO iknowAV_Hotels_Stat.Review 
 			 (DomainName, SourceId, AuthorRating, AuthorRatingComfort, AuthorRatingFood,
-			  AuthorRatingHospitality, AuthorRatingLocation, AuthorRatingService, AuthorRatingTerritory, HotelId)
-			  VALUES (:domName, :SourceId, :AuthorRating, :AuthorRatingComfort, :AuthorRatingFood,
-			  :AuthorRatingHospitality, :AuthorRatingLocation, :AuthorRatingService, :AuthorRatingTerritory, :hotelID))
+			  AuthorRatingHospitality, AuthorRatingLocation, AuthorRatingService, AuthorRatingTerritory, HotelId, TravelDate)
+			  VALUES (:domName, :SourceId, NULLIF(:AuthorRating,0), NULLIF(:AuthorRatingComfort, 0), NULLIF(:AuthorRatingFood, 0),
+			  NULLIF(:AuthorRatingHospitality, 0), NULLIF(:AuthorRatingLocation, 0), NULLIF(:AuthorRatingService,0), NULLIF(:AuthorRatingTerritory, 0), :hotelID, :TravelDate))
 		
 		if (SQLCODE '= 0) {
 			zw SQLCODE
@@ -464,7 +465,7 @@ domName - Domain name</Description>
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63424,42013.589153</TimeChanged>
+<TimeChanged>63424,63277.335977</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
 <Parameter name="NEUTRALLOWBORDER">
@@ -484,6 +485,10 @@ Parameter that determines the upper bound estimate of the hotel (1 to 5), in whi
 Parameter responsible for the evaluation of suspicious reviews.
 If PES of Review greater than the specified parameter values​​, it is considered suspicious.</Description>
 <Default>0.99</Default>
+</Parameter>
+
+<Parameter name="MAXSENTENCELENGTHTORETURN">
+<Default>15</Default>
 </Parameter>
 
 <Method name="ProcessAllSources">
@@ -510,7 +515,7 @@ applyNegation: 1 - include in processing sentences with Negation, 0 - do not inc
 	// Clearing old results
 	do ..ClearStats(domName)
 	do ..ClearSentences()
-	write !, "Processing Emotional markers..", !
+	write "   Processing Emotional markers..", !
 
 	// Fill the Sentence table with counts of emotional markers
 	do ..BuildProcessingSentences(domName)
@@ -521,19 +526,20 @@ applyNegation: 1 - include in processing sentences with Negation, 0 - do not inc
 	set j = 1
 	kill ^review
 	
-	write !, "Processing Functional markers..", !
-	do ..ProcessSourceBunch(domName, applyNegation)
+	write "   Processing Functional markers..", !
+	do ..ProcessFunctionalMarkers(domName, applyNegation)
 	
 	// Processing the sources to obtain the final estimates of hotels
 	set tSC = ..ProcessHotelsGrades()
-	write !, "Process hotels grades passed with status: ", tSC, !
+	write !, "  Processing hotels grades passed with status: ", tSC, !
 
 	set tSC =  ..ProcessingStats(domName, applyNegation)
-	write "Processing Emotional Stats complete with status: ", tSC, !
+	write "  Processing Emotional Stats complete with status: ", tSC, !
 	
 	do ..ProcessSuspectAndUsefulness()
 	
-	// do ..ProcessAllHotelsSentences(domName)
+	write "   Processing User Sentences for Categories..", !
+	do ..ProcessAllHotelsSentences(domName, ..#MAXSENTENCELENGTHTORETURN)
 	
 	set endTime = $piece($horolog,",",2)
 
@@ -555,22 +561,6 @@ The method loops through all the reviews and is calculated for each review the s
 		do ..DetectSuspectReviewsByHotel($list(idList, i))
 		do ..CalcReviewsUsefulness($list(idList,i))
 	}
-]]></Implementation>
-</Method>
-
-<Method name="ProcessSourceBunch">
-<Description>
-Method of processing the bunch of sources.
-domName - Domain name.
-srcId - Source ID.
-applyNegation: 1 - include in processing sentences with Negation, 0 - do not include.</Description>
-<ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,applyNegation:%Boolean=0</FormalSpec>
-<ReturnType>%Status</ReturnType>
-<Implementation><![CDATA[
-	set tSC = ..ProcessFunctionalMarkers(domName, applyNegation)
-	
-	return tSC
 ]]></Implementation>
 </Method>
 
@@ -1222,17 +1212,10 @@ hotelId - Hotel ID.
 categoryName - Category name.
 numberOfWordsInSentence - maximum number of words in a single sentence.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,hotelId:%Integer,categoryName:%String,numberOfWordsInSentence:%Integer=15</FormalSpec>
+<FormalSpec>domName:%String,hotelId:%Integer,categoryName:%String,numberOfWordsInSentence:%Integer</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
-	
-	set mostSpreadEntity = ""
-	set mostSpread = 0
-	set mostSpreadEntityId = 0
-	set currentEntity = ""
-	set currentSpread = 0
-	// current category
+	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)
 	set markerCategory = ""
 	
 	// Set the filter with HotelId
@@ -1273,30 +1256,11 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 			if (categoryName '= markerCategory) { continue }
 			
 			set currentEntity = $piece(line,"#",2)	
-	
-			// For the first iteration
-			if (mostSpreadEntity = "") {
-				set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId,currentEntity)
-				
-				if (entityId = "") { continue }			
+			set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId,currentEntity)
+		
+			if (entityId = "") { continue }			
 						
-				set mostSpreadEntity = currentEntity
-				set mostSpread = ##class(%iKnow.Queries.EntityAPI).GetSpread(domainId,entityId,,filter)
-				set mostSpreadEntityId = entityId
-			}	
-			
-			// Search the Entity with max Spread
-			set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId,currentEntity)			
-			
-			if (entityId = "") { continue }
-			
-			set currentSpread = ##class(%iKnow.Queries.EntityAPI).GetSpread(domainId,entityId,,filter)	
-			
-			if (currentSpread > mostSpread) {
-				set mostSpread = currentSpread
-				set mostSpreadEntity = currentEntity
-				set mostSpreadEntityId = entityId
-			}			
+			set $list(entityIdList, *+1) = entityId			
 		}
 	}
 	
@@ -1307,7 +1271,7 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 	kill srcResult
 	
 	// Obtain all Sources (filtered by hotel)
-	do ##class(%iKnow.Queries.SourceAPI).GetByDomain(.srcResult,domainId,1,0,filter)
+	do ##class(%iKnow.Queries.SourceAPI).GetByDomain(.srcResult, domainId, 1, 0, filter)
 	
 	// Obtain the number of Sources (filtered by hotel)
 	set numberOfReviews = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId, filter)
@@ -1321,12 +1285,9 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 	kill result
 					
 	set iKnowCategory = "iKnowRating"_categoryName			
-	
-	
-	
+
 	// Obtain a list of sentences in the source containing this entity						
-	set st = ##class(%iKnow.Queries.SentenceAPI).GetByEntityIds(.result, domainId, $lb(mostSpreadEntityId), srcIdFilter, 1, 0)					
-	// ^^^ - Now it does not working correctly
+	do ##class(%iKnow.Queries.SentenceAPI).GetByEntityIds(.result, domainId, entityIdList, srcIdFilter, 1, 0)					
 
 	set p2 = ""
 							
@@ -1380,17 +1341,16 @@ Method of collecting all sentences for all categories of all hotels.
 domName - Domain name
 numberOfWordsInSentence - maximum number of words in a single sentence.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,numberOfWordsInSentence:%Integer</FormalSpec>
+<FormalSpec>domName:%String,numberOfWordsInSentence:%Integer=15</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
-		&sql(SELECT %DLIST(HotelId), %DLIST(id) INTO :hotelIdList, :idList FROM iknowAV_Hotels_Stat.Hotel)
+		&sql(SELECT %DLIST(HotelId) INTO :hotelIdList FROM iknowAV_Hotels_Stat.Hotel)
 
 		set length = $listlength(hotelIdList)
 		
 		for i=1:1:length {
-		
 			for categoryName = "Comfort","Food","Hospitality","Location","Service","Territory" {
-				do ..GetCategoryDetail(domName, $list(hotelIdList,i), categoryName)
+				do ..GetCategoryDetail(domName, $list(hotelIdList,i), categoryName, numberOfWordsInSentence)
 			}	
 		}
 		
@@ -1449,12 +1409,99 @@ categoryName - Category Name</Description>
 ]]></Implementation>
 </Method>
 
-<UDLText name="T">
-<Content><![CDATA[
-// ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<Method name="GetRandomSentenceByEntity">
+<Description>
+The method of returning the random Sentence mention the specified entity of the specified hotel
+DomName - Domain name.
+hotelId - Hotel ID.
+entity - Entity.
+numberOfWordsInSentence - maximum number of words in a single sentence.</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>domName:%String,hotelId:%Integer,entity:%String,numberOfWordsInSentence:%Integer=15</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
+	
+	// Set the filter with HotelId
+	set filter = ##class(%iKnow.Filters.SimpleMetadataFilter).%New(domainId, "HotelId","=",hotelId)	
+	
+	set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId, entity)
+		
+	if (entityId = "") { 
+		write "There is no entity """, entity, """ in the Reviews for this Hotel", !
+		return ""
+	}			
+						
+	set $list(entityIdList, *+1) = entityId			
 
-]]></Content>
-</UDLText>
+	kill srcResult
+	
+	// Obtain all Sources (filtered by hotel)
+	do ##class(%iKnow.Queries.SourceAPI).GetByDomain(.srcResult, domainId, 1, 0, filter)
+	
+	// Obtain the number of Sources (filtered by hotel)
+	set numberOfReviews = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId, filter)
+	
+	for i=1:1:numberOfReviews {
+		set $list(srcIdList, *+1) = $list(srcResult(i), 1)	
+	}
+	
+	set srcIdFilter = ##class(%iKnow.Filters.SourceIdFilter).%New(domainId, srcIdList)
+	
+	kill result
+	kill similarResult
+	
+	do ##class(%iKnow.Queries.EntityAPI).GetSimilar(.similarResult, domainId, entity, 1, 0, filter, ,$$$USEWORDS)
+	
+	set p1 = ""
+	
+	for {
+		set p1 = $order(similaresult(p1))	
+		quit:(p1 = "")
+		
+		set $list(entityIdList, *+1) = similarResult(p1)
+	}
+	
+	// Obtain a list of sentences in the source containing this entity						
+	do ##class(%iKnow.Queries.SentenceAPI).GetByEntityIds(.result, domainId, entityIdList, srcIdFilter, 1, 0)	
+	
+	if '($data(result(1))) { 
+		write "There is no entity """, entity, """ in the Reviews for this Hotel", !
+		return ""
+	}				
+
+	set p2 = ""
+						
+	// Loop through the sentences contained Entity
+	for 
+	{					
+		set p2 = $order(result(p2))	
+		quit:(p2 = "")
+				
+		set sentenceId = $list(result(p2), 3)	
+		
+		// Obtain Negation of current sentence
+		&sql(SELECT Negation INTO :negation FROM  iknowAV_Hotels_Processing.Sentence WHERE SentenceId = :sentenceId AND DomainName = :domName)
+		
+		if (SQLCODE = 100) { continue }
+		if (negation = -1) { continue } 
+		
+		set currentSentence = ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, sentenceId)
+
+		set sentenceLength = $length(currentSentence, " ")
+		
+		if (sentenceLength < numberOfWordsInSentence) {
+			set $list(allResult,*+1) = sentenceId
+		}
+							
+	 }	// for (Sentence)
+
+	
+	set rnd = $random($listlength(allResult)) + 1
+
+	return ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, $list(allResult, rnd))
+]]></Implementation>
+</Method>
 </Class>
 
 
@@ -2305,7 +2352,7 @@ Timestamp of processing endtime.</Description>
 
 <Class name="iknowAV.Hotels.Stat.Review">
 <Super>%Persistent</Super>
-<TimeChanged>63424,42594.317916</TimeChanged>
+<TimeChanged>63424,54683.801866</TimeChanged>
 <TimeCreated>63378,59046.196236</TimeCreated>
 
 <Property name="DomainName">
@@ -2432,6 +2479,10 @@ Estimated rating of hospitality.</Description>
 <InitialExpression>0</InitialExpression>
 </Property>
 
+<Property name="TravelDate">
+<Type>%Library.Date</Type>
+</Property>
+
 <Storage name="Default">
 <Type>%Library.CacheStorage</Type>
 <DataLocation>^iknowAV.Hotels.Stat.ReviewD</DataLocation>
@@ -2440,8 +2491,6 @@ Estimated rating of hospitality.</Description>
 <IndexLocation>^iknowAV.Hotels.Stat.ReviewI</IndexLocation>
 <StreamLocation>^iknowAV.Hotels.Stat.ReviewS</StreamLocation>
 <Data name="ReviewDefaultData">
-<Structure>listnode</Structure>
-<Subscript/>
 <Value name="1">
 <Value>%%CLASSNAME</Value>
 </Value>
@@ -2504,6 +2553,9 @@ Estimated rating of hospitality.</Description>
 </Value>
 <Value name="21">
 <Value>Usefulness</Value>
+</Value>
+<Value name="22">
+<Value>TravelDate</Value>
 </Value>
 </Data>
 </Storage>
