@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-25 18:06:38">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-26 20:40:58">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
 <TimeChanged>63424,65156.99776</TimeChanged>
@@ -465,7 +465,7 @@ domName - Domain name</Description>
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63424,63277.335977</TimeChanged>
+<TimeChanged>63424,78793.278879</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
 <Parameter name="NEUTRALLOWBORDER">
@@ -538,7 +538,7 @@ applyNegation: 1 - include in processing sentences with Negation, 0 - do not inc
 	
 	do ..ProcessSuspectAndUsefulness()
 	
-	write "   Processing User Sentences for Categories..", !
+	write "  Processing User Sentences for Categories..", !
 	do ..ProcessAllHotelsSentences(domName, ..#MAXSENTENCELENGTHTORETURN)
 	
 	set endTime = $piece($horolog,",",2)
@@ -1496,6 +1496,11 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 							
 	 }	// for (Sentence)
 
+	
+	if '($data(allResult)) {
+		write "There is no Sentences mention specified numberOfWordsInSentence parameter", !
+		return ""
+	}
 	
 	set rnd = $random($listlength(allResult)) + 1
 
@@ -2564,7 +2569,7 @@ Estimated rating of hospitality.</Description>
 
 <Class name="iknowAV.Hotels.Stat.ReviewStat">
 <Super>%Persistent</Super>
-<TimeChanged>63419,50496.132216</TimeChanged>
+<TimeChanged>63425,63619.94819</TimeChanged>
 <TimeCreated>63389,61279.232043</TimeCreated>
 
 <Property name="ReviewId">
@@ -2663,6 +2668,10 @@ Negative emotional saturation of the review.</Description>
 <SqlComputeCode>set {NegativeEmotionalSaturation} = {NegativeMarkersSum} / {NumberOfEntities}</SqlComputeCode>
 <SqlComputed>1</SqlComputed>
 </Property>
+
+<Index name="HotelNameIndex">
+<Properties>HotelName</Properties>
+</Index>
 
 <Storage name="Default">
 <Type>%Library.CacheStorage</Type>
