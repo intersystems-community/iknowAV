@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-08-27 15:24:51">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-09-02 10:58:45">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
 <TimeChanged>63424,65156.99776</TimeChanged>
@@ -238,15 +238,23 @@ Method of deleting a domain with all environment</Description>
 
 <Class name="iknowAV.Hotels.Processing.Dictionary">
 <IncludeCode>%IKPublic</IncludeCode>
-<TimeChanged>63426,45186.413057</TimeChanged>
+<TimeChanged>63432,39218.393477</TimeChanged>
 <TimeCreated>63391,62547.861221</TimeCreated>
+
+<UDLText name="T">
+<Content><![CDATA[
+// do ##class(iknowAV.Hotels.Processing.Dictionary).TeachFMarkersDictionary("HOTELS01","FMARKERSFULL.txt")
+
+]]></Content>
+</UDLText>
 
 <Method name="TeachFMarkersDictionary">
 <Description>
 The method according to brief dictionary of functional markers forms complete dictionary, which includes similar concepts (s#)
-domName - Domain name</Description>
+domName - Domain name
+writeToFile - filename to write a full list of similar terms. If writeToFile = "", it is not written. Example value: "fullFMarkersDict.txt"</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String</FormalSpec>
+<FormalSpec>domName:%String,writeToFile:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	
@@ -265,16 +273,32 @@ domName - Domain name</Description>
 	
 	write "   fmarkers input file... ", fileNameIn, !
 	
+	// creating output file	
+	if (writeToFile '= "") {
+		set fileNameOut = ^iknowAVDomainFolder(domName)_writeToFile
+		set streamOut = ##class(%Stream.FileCharacter).%New()
+		set tSC = streamOut.LinkToFile(fileNameOut)	
+		
+		if (tSC '= $$$OK) {
+			return tSC
+		}
+		
+		write "   fmarkers output file... ", fileNameOut,!
+	}	
+	
 	set i = 1
 			
 	// Loop through lines of file	
 	while '(streamIn.AtEnd) {
 				
 		set line = streamIn.ReadLine()
-				
+		
+		if (writeToFile '= "") {
+			do streamOut.WriteLine(line)
+		}
+		
 		// Check, does a string begin with a "!" (! - comment)			
 		set checkComment = $piece(line,"!",1,1)
-		
 		if (checkComment="") {
 			set ^fmarkers(i) = line
 			set i = i + 1
@@ -283,31 +307,32 @@ domName - Domain name</Description>
 		
 		set stype = $piece(line,"#",1)
 		
-		if (stype = "d") {			// "d" - Dictionary
+		if (stype = "d") {		// "d" - Dictionary
 			set ^fmarkers(i) = line
 			set i = i + 1
 			continue
 		}
-		elseif (stype = "i") {	 	// "i" - Category
+		elseif (stype = "i") {	// "i" - Category
 			set ^fmarkers(i) = line
 			set i = i + 1
 			continue
 		}
-		elseif (stype="t") {		// "t" - term 
+		elseif (stype="t") {	// "t" - term 
+	
 			set dList = $piece(line,"#",2)
 			set j = 1
 			
 			// Loop through terms in one line
 			while ($piece(dList,",",j) '= "") {	
-				
+			
 				// $piece(dList,",",j) - current term
 				set entityValue = $piece(dList,",",j)
 				
 				set ^fmarkers(i) = "t#"_entityValue
+				
 				set i = i + 1
 				
-				kill similarResult
-								
+				kill similarResult				
 				// Obtain similar entities IDs
 				set status = ##class(%iKnow.Queries.EntityAPI).GetSimilar(.similarResult, domainId, entityValue, 1, 0, , ,$$$USEWORDS)
 				
@@ -321,7 +346,6 @@ domName - Domain name</Description>
 				
 				// Loop through similar entities
 				for {	
-					
 					set p1 = $order(similarResult(p1))	
 					quit:(p1 = "")
 					
@@ -332,6 +356,7 @@ domName - Domain name</Description>
 					
 					if (similarEntity '= entityValue) {
 						set ^fmarkers(i) = "s#"_similarEntity
+						if (writeToFile '= "")	{do streamOut.WriteLine("s#"_similarEntity)}
 						set i = i + 1
 					}
 
@@ -343,25 +368,41 @@ domName - Domain name</Description>
 						continue 
 					}
 										
+					
 					set k1 = k1 + 1
-				} // for (Similar)	
+				} // for (Similar)
+				
 				set j = j + 1
-			} // While (Line)		
+			} // While (Line)
+				
 		}	// elseif (stype="t") 		
+		
 	} // while ('stream.AtEnd)
 		
 	write "   Dictionary placed in ^fmarkers [global].", !		
-			
+	if (writeToFile '= "")	
+	{
+		do streamOut.%Save()
+		write "   extended dictionary is written to file: "_filenameOut,! 
+	}		
 	return $$$OK
 ]]></Implementation>
 </Method>
 
+<UDLText name="T">
+<Content><![CDATA[
+// do ##class(iknowAV.Hotels.Processing.Dictionary).TeachEMarkersDictionary("HOTELS01","EMARKERSFULL.txt")
+
+]]></Content>
+</UDLText>
+
 <Method name="TeachEMarkersDictionary">
 <Description>
 The method according to brief dictionary of emotional markers forms complete dictionary, which includes similar concepts
-domName - Domain name</Description>
+domName - Domain name
+writeToFile - filename to write a full list of similar terms. If writeToFile = "", it is not written. Example value: "fullEMarkersDict.txt"</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String</FormalSpec>
+<FormalSpec>domName:%String,writeToFile:%String=""</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	
@@ -369,24 +410,40 @@ domName - Domain name</Description>
 
 	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
 
-	// Open the file with the dictionary of emotional markers.			
+	// Open the file with the dictionary of functional markers.		
 	set fileNameIn = ^iknowAVDomainFolder(domName)_"emarkers.txt"
-	set streamIn = ##class(%Stream.FileCharacter).%New()
+	set streamIn  = ##class(%Stream.FileCharacter).%New()
 	set tSC = streamIn.LinkToFile(fileNameIn)
 	
 	if (tSC '= $$$OK) {
-		return tSC	
-	} 
+		return tSC
+	}
 	
-	write "   emarkers input file... ", fileNameIn, !
+	write "   fmarkers input file... ", fileNameIn, !
+	
+	// creating output file	
+	if (writeToFile '= "") {
+		set fileNameOut = ^iknowAVDomainFolder(domName)_writeToFile
+		set streamOut = ##class(%Stream.FileCharacter).%New()
+		set tSC = streamOut.LinkToFile(fileNameOut)	
+		
+		if (tSC '= $$$OK) {
+			return tSC
+		}
+		
+		write "   fmarkers output file... ", fileNameOut,!
+	}
 	
 	set i = 1
 			
 	// Loop through lines of file	
-	while '(streamIn.AtEnd)	{
-				
+	while '(streamIn.AtEnd) {		
 		set line = streamIn.ReadLine()
-				
+		
+		if (writeToFile '= "") {
+			do streamOut.WriteLine(line)
+		}	
+			
 		// Check, does a string begin with a "!" (! - comment)	
 		set checkComment = $piece(line,"!",1,1)
 		if (checkComment="") {
@@ -396,7 +453,6 @@ domName - Domain name</Description>
 		}
 		
 		set price = $piece(line,"#",1)
-		
 		set dList = $piece(line,"#",2)
 		set j = 1
 			
@@ -405,6 +461,7 @@ domName - Domain name</Description>
 			
 			// $piece(dList,",",j) - current term(entity)
 			set entityValue = $piece(dList,",",j)
+			//set j = j + 1
 
 			set ^emarkers(i) = price_"#"_entityValue
 			set i = i + 1
@@ -424,7 +481,6 @@ domName - Domain name</Description>
 				
 			// Loop through similar entities
 			for {	
-			
 				set p1 = $order(similarResult(p1))	
 				quit:(p1 = "")
 				
@@ -435,6 +491,7 @@ domName - Domain name</Description>
 				
 				if (similarEntity '= entityValue) {
 					set ^emarkers(i) = price_"#"_similarEntity
+					if (writeToFile '= "")	{do streamOut.WriteLine(price_"#"_similarEntity)}
 					set i = i + 1
 				}
 
@@ -445,25 +502,117 @@ domName - Domain name</Description>
 					set k1 = k1 + 1
 					continue 
 				}
-											
+										
+					
 				set k1 = k1 + 1
 			} // for (Similar)
+				
 			set j = j + 1
-		} // While (Line)				
+		} // While (Line)
+					
 	} // while ('stream.AtEnd)
 
 	write "   Dictionary placed in ^emarkers [global].", !
-		
+	if (writeToFile '= "") {	
+		do streamOut.%Save()
+		write "   extended dictionary is written to file: "_filenameOut,! 
+	}
+			
 	return $$$OK
 ]]></Implementation>
 </Method>
 </Class>
 
 
+<Class name="iknowAV.Hotels.Processing.Path">
+<Super>%Persistent</Super>
+<TimeChanged>63427,53341.412807</TimeChanged>
+<TimeCreated>63382,57101.968597</TimeCreated>
+
+<Property name="PathId">
+<Description>
+Sentence ID</Description>
+<Type>%Integer</Type>
+<Required>1</Required>
+</Property>
+
+<Index name="PathIdIndex">
+<Properties>PathId</Properties>
+<Unique>1</Unique>
+</Index>
+
+<Property name="DomainName">
+<Description>
+Domain name</Description>
+<Type>%String</Type>
+<Required>1</Required>
+</Property>
+
+<Property name="Positive">
+<Description>
+Number of positive markers.</Description>
+<Type>%Integer</Type>
+<InitialExpression>0</InitialExpression>
+</Property>
+
+<Property name="Negative">
+<Description>
+Number of negative markers.</Description>
+<Type>%Integer</Type>
+<InitialExpression>0</InitialExpression>
+</Property>
+
+<Property name="Negation">
+<Description>
+The Negation flag.</Description>
+<Type>%Integer</Type>
+<InitialExpression>1</InitialExpression>
+</Property>
+
+<Property name="SrcId">
+<Type>%Integer</Type>
+</Property>
+
+<Storage name="Default">
+<Type>%Library.CacheStorage</Type>
+<DataLocation>^iknowAV.Hotels.ProcesE05F.PathD</DataLocation>
+<DefaultData>PathDefaultData</DefaultData>
+<IdLocation>^iknowAV.Hotels.ProcesE05F.PathD</IdLocation>
+<IndexLocation>^iknowAV.Hotels.ProcesE05F.PathI</IndexLocation>
+<StreamLocation>^iknowAV.Hotels.ProcesE05F.PathS</StreamLocation>
+<Data name="PathDefaultData">
+<Structure>listnode</Structure>
+<Subscript/>
+<Value name="1">
+<Value>%%CLASSNAME</Value>
+</Value>
+<Value name="2">
+<Value>PathId</Value>
+</Value>
+<Value name="3">
+<Value>DomainName</Value>
+</Value>
+<Value name="4">
+<Value>Positive</Value>
+</Value>
+<Value name="5">
+<Value>Negative</Value>
+</Value>
+<Value name="6">
+<Value>Negation</Value>
+</Value>
+<Value name="7">
+<Value>SrcId</Value>
+</Value>
+</Data>
+</Storage>
+</Class>
+
+
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63426,52557.484671</TimeChanged>
+<TimeChanged>63432,39513.736104</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
 <Parameter name="NEUTRALLOWBORDER">
@@ -489,6 +638,10 @@ If PES of Review greater than the specified parameter values​​, it is consid
 <Description>
 Parameter that determines the maximum number of words in sentences that are processed in the methods GetCategoryDetail().</Description>
 <Default>15</Default>
+</Parameter>
+
+<Parameter name="NFMARKERS">
+<Default>1</Default>
 </Parameter>
 
 <Method name="ProcessAllSources">
@@ -558,6 +711,8 @@ domName - Domain name, applyNegation: 1 - include in processing sentences with N
 
 	// Processing Negation
 	do ..ProcessNegationSentences(domName)
+	
+	// do ..PreProcessFunctionalMarkers(domName, ..#NFMARKERS)
 
 	kill ^review
 	
@@ -624,7 +779,7 @@ domName - Domain name, applyNegation: 1 - include in processing sentences with N
 <Description>
 The method analyzes the sentences of the sources on the emotional markers and fill the iknowAV_Hotels_Processing.Sentence table.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,srcList:%List</FormalSpec>
+<FormalSpec>domName:%String</FormalSpec>
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
@@ -700,11 +855,13 @@ The method analyzes the sentences of the sources on the emotional markers and fi
 <Description>
 Method of processing negative sentences.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,srcList:%List</FormalSpec>
+<FormalSpec>domName:%String</FormalSpec>
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 
+	set ^shortNegSent = 0
+	
 	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
 	
 	set length = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId)
@@ -733,6 +890,14 @@ Method of processing negative sentences.</Description>
 	            	set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),4) = $list(^iknowAV.Hotels.PrE05F.SentenceD(id),5)
 	            	set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),5) = temp
 	            	set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),6) = -1
+	            	
+					set currentSentence = ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, sentenceId)
+
+					set sentenceLength = $length(currentSentence, " ")
+
+					if (sentenceLength < 10) {
+						set ^shortNegSent = ^shortNegSent + 1
+					}
 	           	}
 	        }
 	        
@@ -740,6 +905,154 @@ Method of processing negative sentences.</Description>
 	    	
 	    } // while
 	}    
+	return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="PreProcessFunctionalMarkers">
+<Description>
+The method analyzes the sentences of the sources on the emotional markers and fill the iknowAV_Hotels_Processing.Sentence table.</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>domName:%String,nFmarkers:%Integer</FormalSpec>
+<Private>1</Private>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
+	
+	// WRITE FIRST 1000 NEGATION SENTENCES TO FILE
+	
+	/*
+	// Open the file with the dictionary of functional markers.		
+	set fileNameIn = ^iknowAVDomainFolder(domName)_"NegationSentences1000.txt"
+	set streamOut  = ##class(%Stream.FileCharacter).%New()
+	set tSC = streamOut.LinkToFile(fileNameIn)
+	
+
+	&sql(DECLARE cur2 CURSOR FOR SELECT sentenceId, id INTO :sentId, :id FROM  iknowAV_Hotels_Processing.Sentence
+		 WHERE (Negation = -1))
+	
+	&sql(open cur2)
+	&sql(fetch cur2)
+	
+	set i = 0
+	
+	while ((i < 1000) && (SQLCODE = 0)) {	
+		
+		do streamOut.WriteLine(##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, sentId))
+		
+		&sql(fetch cur2)
+		
+		set i = i + 1
+	}
+	
+	&sql(close cur2)
+	
+	do streamOut.%Save()
+	
+	write "READY!", !
+	
+	*/
+	
+	set p1 = ""	
+		
+	for {	
+		
+		set p1 = $order(^fmarkers(p1))
+		quit:(p1 = "")	
+	
+		set line = ^fmarkers(p1)
+		
+		// Check, does a string begin with a "!" (! - comment)		
+		set checkComment = $PIECE(line,"!", 1, 1)
+		if (checkComment = "") { continue }
+		
+		// Obtain a term(entity) value.
+		set stype = $piece(line,"#",1)	
+		
+		if ((stype="t") || (stype="s")) {
+			
+			// $piece(line,"#",2) - current term(entity)
+			set entityValue = $piece(line,"#",2)
+			set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId, entityValue)	
+
+			kill result
+		
+			// Obtain a list of sentences in the sources containing this entity
+			do ##class(%iKnow.Queries.SentenceAPI).GetByEntityIds(.result, domainId, $lb(entityId),, 1, 0)	
+		
+			if '($data(result(1))) { continue }			
+		
+			set p2 = ""
+		
+			// Loop on the sentences contained this entity
+			for {		
+						
+				set p2 = $order(result(p2))	
+				quit:(p2 = "")
+				
+				// Obtain the Sentence ID		
+				set sentenceId = $list(result(p2), 3)	
+				
+				set sourceId = ##class(%iKnow.Queries.SentenceAPI).GetSourceId(domainId, sentenceId)
+				
+				// Obtain Sentence ID in the table
+				&sql(SELECT ID INTO :id FROM  iknowAV_Hotels_Processing.Sentence WHERE SentenceId = :sentenceId AND DomainName = :domName)
+				
+				// If the query does not return anything, then add a new record
+				if (SQLCODE = 100) {	
+					&sql(INSERT INTO iknowAV_Hotels_Processing.Sentence (DomainName, SentenceId, SrcId) 
+						 VALUES (:domName, :sentenceId, :sourceId))
+					set id = ^iknowAV.Hotels.PrE05F.SentenceD
+				}
+				elseif (SQLCODE < 0) {
+					write "Error during SQL query.", !
+					write "   query returned SQLCODE: ", SQLCODE, !
+					return $$$ERROR("SQL query error")	
+				}		
+				
+				set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),9) = $length(##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, sentenceId), " ")
+				set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),7) = $list(^iknowAV.Hotels.PrE05F.SentenceD(id),7) + 1 
+			}
+							
+		}	// for (Sentence)
+		
+	} // while 'stream.AtEnd
+	
+	
+	// WRITE ALL SHORT NEGATION SENTENCES TO FILE
+	
+	/* 
+	
+	// Open the file with the dictionary of functional markers.		
+	set fileNameIn = ^iknowAVDomainFolder(domName)_"NegationSentences.txt"
+	set streamOut  = ##class(%Stream.FileCharacter).%New()
+	set tSC = streamOut.LinkToFile(fileNameIn)
+	
+
+	&sql(DECLARE cur1 CURSOR FOR SELECT sentenceId, id INTO :sentId, :id FROM  iknowAV_Hotels_Processing.Sentence
+		 WHERE (Negation = -1) AND (Positive + Negative = 1) AND nFmarkers <= :nFmarkers)
+	
+	&sql(open cur1)
+	&sql(fetch cur1)
+	
+	while (SQLCODE = 0) {	
+		if (($list(^iknowAV.Hotels.PrE05F.SentenceD(id),9) <= 15) & ($list(^iknowAV.Hotels.PrE05F.SentenceD(id),9) > 0)) {
+			do streamOut.WriteLine(##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, sentId))
+		}
+		
+		&sql(fetch cur1)
+	}
+	
+	&sql(close cur1)
+	
+	do streamOut.%Save()
+	
+	*/
+	
+	&sql(UPDATE iknowAV_Hotels_Processing.Sentence (Negation)
+		 VALUES (1)
+		 WHERE (nWords <= 15) AND (Positive + Negative = 1) AND nFmarkers <= :nFmarkers)
+	
 	return $$$OK
 ]]></Implementation>
 </Method>
@@ -1096,6 +1409,21 @@ Method, calculating the summary statistics and the statistics of hotels (Emotion
 	set processingResult.NumberOfSources = numOfSources	
 	set processingResult.Negation = applyNegation	
 	set processingResult.ProcessingDateTime = $zdatetime($h,3)
+	
+	&sql(SELECT %DLIST(UserRating), %DLIST(iKnowRating), %DLIST(UserRatingComfort), %DLIST(iKnowRatingComfort), %DLIST(UserRatingFood), %DLIST(iKnowRatingFood), 
+				%DLIST(UserRatingHospitality), %DLIST(iKnowRatingHospitality), %DLIST(UserRatingLocation), %DLIST(iKnowRatingLocation), %DLIST(UserRatingService), 
+				%DLIST(iKnowRatingService), %DLIST(UserRatingTerritory), %DLIST(iKnowRatingTerritory)
+		 INTO :userRatingList, :iknowRatingList, :userRatingComfortList, :iknowRatingComfortList, :userRatingFoodList, :iknowRatingFoodList, :userRatingHospitalityList, :iknowRatingHospitalityList,
+		 	  :userRatingLocationList, :iknowRatingLocationList, :userRatingServiceList, :iknowRatingServiceList, :userRatingTerritoryList, :iknowRatingTerritoryList
+		 FROM iknowAV_Hotels_Stat.Hotel)
+	
+	set processingResult.CorrelationComfort = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingComfortList, iknowRatingComfortList)
+	set processingResult.CorrelationHotel = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingList, iknowRatingList)
+	set processingResult.CorrelationFood = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingFoodList, iknowRatingFoodList)
+	set processingResult.CorrelationLocation = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingLocationList, iknowRatingLocationList)
+	set processingResult.CorrelationService = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingServiceList, iknowRatingServiceList)
+	set processingResult.CorrelationHospitality = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingHospitalityList, iknowRatingHospitalityList)
+	set processingResult.CorrelationTerritory = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingTerritoryList, iknowRatingTerritoryList)
 	
 	set tSC = processingResult.%Save()
 	
@@ -1603,12 +1931,493 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 	return ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, $list(allResult, rnd))
 ]]></Implementation>
 </Method>
+
+<UDLText name="T">
+<Content><![CDATA[
+// ======= FOR PATHS ========
+
+]]></Content>
+</UDLText>
+
+<Method name="ProcessAllSourcesPaths">
+<Description>
+Method of processing all domain sources. Processing dictionaries, emarkers, fmarkers, total evaluation of hotels, user sentences and etc.
+domName - Domain name, applyNegation: 1 - include in processing sentences with Negation, 0 - do not include.</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>domName:%String,applyNegation:%Boolean=0</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	
+	set beginTime = $piece($horolog,",",2)
+	write !, "Started at: ", $ztime(beginTime), !
+	
+	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
+	
+	// Processing the dictionaries
+	set tSC = ##class(iknowAV.Hotels.Processing.Dictionary).TeachEMarkersDictionary(domName)
+	
+	if (tSC '= $$$OK) {
+		do $System.Status.GetErrorText(tSC)
+		w !
+		return $$$ERROR("Can't process emarkers dictionary")
+	}
+	
+	set tSC = ##class(iknowAV.Hotels.Processing.Dictionary).TeachFMarkersDictionary(domName)
+	
+	if (tSC '= $$$OK) {
+		do $System.Status.GetErrorText(tSC)
+		w !
+		return $$$ERROR("Can't process fmarkers dictionary")
+	}
+	
+	write "   Clearing old stats.."
+	set tSC = ..ClearStats()
+	
+	if (tSC '= $$$OK) {
+		do $System.Status.GetErrorText(tSC)
+		w !
+	}
+	else {
+		write "  Done.", !
+	}
+	
+	write "   Clearing old paths.."
+	set tSC = ..ClearPaths()
+	
+	if (tSC '= $$$OK) {
+		do $System.Status.GetErrorText(tSC)
+		w !
+	}
+	else {
+		write "  Done.", !
+	}
+	
+	write "   Processing Emotional markers.." 
+	// Fill the Sentence table with counts of emotional markers
+	set tSC = ..BuildProcessingPaths(domName)
+	
+	if (tSC '= $$$OK) {
+		do $System.Status.GetErrorText(tSC)
+		w !
+	}
+	else {
+		write "  Done.", !
+	}
+
+	// Processing Negation
+	do ..ProcessNegationPaths(domName)
+
+	kill ^review
+	
+	write "   Processing Functional markers.."
+	set tSC = ..ProcessFunctionalMarkersPaths(domName, applyNegation)
+	
+	if (tSC = $$$OK) {
+		write "  Done.", !
+	}
+	
+	write "   Processing hotels grades.."
+	set tSC = ..ProcessHotelsGrades()
+	
+	if (tSC '= $$$OK) {
+		do $System.Status.GetErrorText(tSC)
+		w !
+	}	
+	else {
+		write "  Done.", !
+	}
+	
+	write "   Processing Emotional Stats.."
+	set tSC =  ..ProcessingStats(domName, applyNegation)
+	
+	if (tSC '= $$$OK) {
+		do $System.Status.GetErrorText(tSC)
+		w !
+	}	
+	else {
+		write "  Done.", !
+	}
+	
+	set endTime = $piece($horolog,",",2)
+
+	write !, "Elapsed time: ", $ztime(endTime - beginTime), !
+	
+	return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="BuildProcessingPaths">
+<Description>
+The method analyzes the paths of the sources on the emotional markers and fill the iknowAV_Hotels_Processing.Path table.</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>domName:%String</FormalSpec>
+<Private>1</Private>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
+	
+	set p1 = ""	
+		
+	for {	
+		
+		set p1 = $order(^emarkers(p1))
+		quit:(p1 = "")	
+	
+		set line = ^emarkers(p1)
+		
+		// Check, does a string begin with a "!" (! - comment)		
+		set checkComment = $PIECE(line,"!", 1, 1)
+		if (checkComment = "") { continue }
+		
+		// Obtain a term(entity) value.
+		set sValue = $piece(line,"#", 1)	
+		set entityValue = $piece(line,"#", 2)
+		
+		// Obtain the ID of current entity
+		set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId, entityValue)	
+	
+		kill result	
+		// Obtain a list of sentences in the sources containing this entity
+		do ##class(%iKnow.Queries.PathAPI).GetByEntityIds(.result, domainId, $lb(entityId), 1, 0)	
+		
+		if '($data(result(1))) { continue }			
+		
+		set p2 = ""
+		
+		// Loop on the Paths contained this entity
+		for {		
+					
+			set p2 = $order(result(p2))	
+			quit:(p2 = "")
+			
+			// Obtain the Sentence ID		
+			set pathId = $list(result(p2), 1)	
+			
+			set sourceId = ##class(%iKnow.Queries.PathAPI).GetSourceId(domainId, pathId)
+			
+			// Obtain Path ID in the table
+			&sql(SELECT ID INTO :id FROM  iknowAV_Hotels_Processing.Path WHERE PathId = :pathId AND DomainName = :domName)
+			
+			// If the query does not return anything, then add a new record
+			if (SQLCODE = 100) {	
+				&sql(INSERT INTO iknowAV_Hotels_Processing.Path (DomainName, PathId, SrcId) 
+					 VALUES (:domName, :pathId, :sourceId))
+				set id = ^iknowAV.Hotels.ProcesE05F.PathD
+			}
+			elseif (SQLCODE < 0) {
+				write "Error during SQL query.", !
+				write "   query returned SQLCODE: ", SQLCODE, !
+				return $$$ERROR("SQL query error")	
+			}
+			
+			// Adding value in the appropriate field. (Positive or Negative) 					
+			if (sValue = "+1")		{set $list(^iknowAV.Hotels.ProcesE05F.PathD(id),4) = $list(^iknowAV.Hotels.ProcesE05F.PathD(id),4) + 1 }
+			elseif (sValue = "-1")	{set $list(^iknowAV.Hotels.ProcesE05F.PathD(id),5) = $list(^iknowAV.Hotels.ProcesE05F.PathD(id),5) + 1 }
+							
+		}	// for
+		
+	} // while 'stream.AtEnd
+	
+	return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="ProcessNegationPaths">
+<Description>
+Method of processing negative paths.</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>domName:%String</FormalSpec>
+<Private>1</Private>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+
+	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
+	
+	set length = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId)
+	
+	for i=1:1:length {
+		
+		set srcId = i
+		
+		// Get the list of attribute values of paths.
+		do ##class(%iKnow.Queries.SourceAPI).GetAttributes(.att, domainId, srcId, 1, 0, "", $$$IKATTLVLPATH)
+	    
+	    set j = 1
+	    
+	    // Loop through the list of attribute values ​​to determine the Negation.
+	    while $data(att(j)) {
+	    	if ($listget(att(j), 1) = 1) {
+	        			
+				set pathId = $listget(att(j),4)
+				
+				// Obtain Path ID in the table
+				&sql(SELECT ID INTO :id FROM  iknowAV_Hotels_Processing.Path WHERE PathId = :pathId AND DomainName = :domName)
+				
+				// Switch the Positive and Negative values.
+	           	if (SQLCODE = 0) {
+	            	set temp = $list(^iknowAV.Hotels.ProcesE05F.PathD(id), 4)
+	            	set $list(^iknowAV.Hotels.ProcesE05F.PathD(id),4) = $list(^iknowAV.Hotels.ProcesE05F.PathD(id),5)
+	            	set $list(^iknowAV.Hotels.ProcesE05F.PathD(id),5) = temp
+	            	set $list(^iknowAV.Hotels.ProcesE05F.PathD(id),6) = -1
+	           	}
+	        }
+	        
+	    	set j = j + 1
+	    	
+	    } // while
+	}    
+	return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="ProcessFunctionalMarkersPaths">
+<Description>
+The method analyzes the paths of the sources on the functional markers and fills fields iKnowRating* in the iknowAV_Hotels_Stat.Review table.</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>domName:%String,applyNegation:%Boolean=0</FormalSpec>
+<Private>1</Private>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+
+	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
+	
+	set length = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId)
+			
+	// The functional marker's category.
+	set markerCategory = ""
+	
+	for i=1:1:length {
+		
+		set srcId = i
+		
+		// Positive and negative values ​​within the category.
+		set ^review(srcId,"positive")  = 0
+		set ^review(srcId,"negative")  = 0
+		
+		set ^review(srcId,"positiveMarkersSum") = 0
+		set ^review(srcId,"negativeMarkersSum") = 0
+		
+		// Appraisal within the category.
+		set ^review(srcId,"grade") = 0
+		
+		// Counter of evaluated categories.
+		set ^review(srcId,"gradedCategoryCount") = 0
+		
+		// General grade.
+		set ^review(srcId,"totalGrade") = 0
+		
+		// Positive and negative values ​​in the entire review.
+		set ^review(srcId,"totalNegative") = 0
+		set ^review(srcId,"totalPositive") = 0
+	}
+	
+	set p1 = ""
+		
+	for	{	
+	
+		set p1 = $order(^fmarkers(p1))
+		quit:(p1 = "")
+		
+		set line = ^fmarkers(p1)
+				
+		// Check, does a string begin with a "!" (! - comment)			
+		set checkComment = $piece(line,"!",1,1)
+		if (checkComment="") { continue }
+
+		set stype = $piece(line,"#",1)
+		
+		if (stype = "d") { continue }
+		// Processing the string with the name of the category
+		elseif (stype = "i") {
+			
+			for i=1:1:length {
+				set srcId = i
+				kill ^review(srcId, "grade")
+			}
+			
+			// If we have a category (the first pass it does not exist), estimate the grade for this category.
+			if (markerCategory '= "") {			
+				
+				for i=1:1:length {
+					
+					set srcId = i
+					
+					if ((^review(srcId,"negative") = 0) && (^review(srcId,"positive") = 0)) { 
+						kill ^review(srcId, "grade")	
+					}
+					elseif (^review(srcId,"negative") = 0) {
+						set ^review(srcId,"grade") = 1 
+					}
+					elseif (^review(srcId,"positive") = 0) {
+						set ^review(srcId,"grade") = 0.2 
+					}
+					else {	
+						set ^review(srcId,"grade") = ^review(srcId,"positive") / (^review(srcId,"positive") + ^review(srcId,"negative"))
+					}
+							
+					if $data(^review(srcId,"grade")) {	
+					
+						// Converting grade in the form of 1 to 5
+						set ^review(srcId,"grade") = ^review(srcId,"grade") * 5
+						
+						set ^review(srcId,markerCategory) = ^review(srcId,"grade")
+						set ^review(srcId,"gradedCategoryCount") = ^review(srcId,"gradedCategoryCount") + 1
+						set ^review(srcId,"totalGrade") = ^review(srcId,"totalGrade") + ^review(srcId,"grade")
+						
+						set ^review(srcId,"positiveMarkersSum") = ^review(srcId,"positiveMarkersSum") + ^review(srcId,"positive")
+						set ^review(srcId,"negativeMarkersSum") = ^review(srcId,"negativeMarkersSum") + ^review(srcId,"negative")
+						
+					}
+					else {
+						set ^review(srcId, markerCategory) = "" 
+					}
+					
+					// Reset positive and negative (for the next category)
+					set ^review(srcId,"positive") = 0
+					set ^review(srcId,"negative") = 0
+				}
+			}
+			
+			// Obtain the name of the next category
+			set markerCategory = $piece(line,"#",2)
+		}
+		
+		// Processing the string with the term(entity)
+		elseif ((stype="t") || (stype="s")) {
+			
+			// $piece(line,"#",2) - current term(entity)
+			set entityValue = $piece(line,"#",2)
+			set entityId = ##class(%iKnow.Queries.EntityAPI).GetId(domainId, entityValue)	
+
+			kill result
+			
+			// Obtain a list of paths in the sources containing this entity					
+			set st = ##class(%iKnow.Queries.PathAPI).GetByEntityIds(.result, domainId, $lb(entityId), 1, 0)			
+			
+			set p2 = ""
+			
+			if '($data(result(1))) { continue }
+			
+			// Loop through the sentences contained this entity
+			for {		
+						
+				set p2 = $order(result(p2))	
+				quit:(p2 = "")
+				
+				// Obtain the Sentence ID	
+				set pathId = $list(result(p2), 1)	
+				
+				// Obtain the path values from table
+				&sql(SELECT Negation, Negative, Positive, SrcId 
+					 INTO :negation, :sNegative, :sPositive, :srcId 
+					 FROM  iknowAV_Hotels_Processing.Path 
+					 WHERE PathId = :pathId AND DomainName = :domName)
+				
+				// If the query does not return anything go to next sentence
+				if (SQLCODE = 100) { continue }
+				
+				// Skipping sentences with the negation, if specified the applyNegation parameter
+				if ((applyNegation = 0) && (negation = -1)) { continue } 
+						
+				// Accumulate the values in the appropriate category
+				set ^review(srcId,"positive") = ^review(srcId,"positive") + sPositive
+				set ^review(srcId,"negative") = ^review(srcId,"negative") + sNegative
+				set ^review(srcId,"totalNegative") = ^review(srcId,"totalNegative") + sNegative
+				set ^review(srcId,"totalPositive") = ^review(srcId,"totalPositive") + sPositive
+								
+			}	// for
+
+		}	// elseif (stype="t") 		
+		
+	} // while ('stream.AtEnd)
+	
+	for i=1:1:length {
+	
+		set srcId = i
+		
+		// If we have at least one estimated category, estimate the general grade
+		if (^review(srcId,"gradedCategoryCount") > 0) {
+			set ^review(srcId,"iKnowRating") = ^review(srcId,"totalGrade") / ^review(srcId,"gradedCategoryCount")
+			
+			// Present Emarkers grade in the form of 1 to 5.
+			set ^review(srcId,"iKnowEmarkersRating") = $SYSTEM.SQL.CEILING($normalize((^review(srcId,"totalPositive") / (^review(srcId,"totalPositive") + ^review(srcId,"totalNegative"))) * 5 - 0.1, -1) + 1)
+		}
+				
+		&sql(SELECT hotelId INTO :hotelId FROM iknowAV_Hotels_Stat.Review WHERE SourceId = :srcId)
+		
+		set hotelName = ##class(%iKnow.Queries.MetadataAPI).GetValueById(domainId, 4, srcId)
+		
+		set numberOfEntities = ##class(%iKnow.Queries.EntityAPI).GetCountBySource(domainId, srcId)
+		if (numberOfEntities = 0) { set numberOfEntities = 1 }
+		
+		set positiveMarkersSum = ^review(srcId,"positiveMarkersSum")
+		set negativeMarkersSum = ^review(srcId,"negativeMarkersSum")
+		
+		set emotionalSum = positiveMarkersSum + negativeMarkersSum
+		set numberOfSentences = ##class(%iKnow.Queries.PathAPI).GetCountBySource(domainId, srcId)
+		
+		if $data(^review(srcId,"iKnowRating")) {
+			set iKnowRating = ^review(srcId,"iKnowRating")
+			set iKnowEmarkersRating = ^review(srcId,"iKnowEmarkersRating")
+			set comfort = ^review(srcId,"Comfort")
+			set food = ^review(srcId,"Food")
+			set hospitality = ^review(srcId,"Hospitality")
+			set location = ^review(srcId,"Location")
+			set service = ^review(srcId,"Service")
+			set territory = ^review(srcId,"Territory")
+		}
+		else {
+			set iKnowRating = ""
+			set iKnowEmarkersRating = ""
+			set comfort = ""
+			set food = ""
+			set hospitality = ""
+			set location = ""
+			set service = ""
+			set territory = ""
+		}
+		
+		
+		&sql(UPDATE iknowAV_Hotels_Stat.Review (iKnowEmarkersRating, iKnowRating, iKnowRatingComfort, iKnowRatingFood, iKnowRatingHospitality,
+												iKnowRatingLocation, iKnowRatingService, iKnowRatingTerritory)
+			 VALUES (:iKnowEmarkersRating, :iKnowRating, :comfort, :food, :hospitality, :location, :service, :territory) 
+			 WHERE SourceId = :srcId)
+		
+		&sql(INSERT INTO iknowAV_Hotels_Stat.ReviewStat (ReviewId, HotelId, HotelName, NumberOfEntities, 
+		     EmotionalSum, NumberOfSentences, PositiveMarkersSum, NegativeMarkersSum)
+		     VALUES (:srcId, :hotelId, :hotelName, :numberOfEntities, :emotionalSum, 
+		             :numberOfSentences, :positiveMarkersSum, :negativeMarkersSum))
+		
+	}
+	
+	return $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="ClearPaths">
+<Description>
+Method of clearing the Path table.</Description>
+<ClassMethod>1</ClassMethod>
+<Private>1</Private>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	
+	&sql(DELETE FROM iknowAV_Hotels_Processing.Path)
+	
+	if (SQLCODE < 0) { 
+		return $$$ERROR("Can't clear the iknowAV_Hotels_Proessing.Path, SQLCODE: ", SQLCODE) 
+	}
+	else { 
+		return $$$OK 
+	}
+]]></Implementation>
+</Method>
 </Class>
 
 
 <Class name="iknowAV.Hotels.Processing.Sentence">
 <Super>%Persistent</Super>
-<TimeChanged>63424,42928.747061</TimeChanged>
+<TimeChanged>63431,62606.362871</TimeChanged>
 <TimeCreated>63382,57101.968597</TimeCreated>
 
 <Property name="SentenceId">
@@ -1651,6 +2460,16 @@ The Negation flag.</Description>
 <InitialExpression>1</InitialExpression>
 </Property>
 
+<Property name="nFmarkers">
+<Type>%Integer</Type>
+<InitialExpression>0</InitialExpression>
+</Property>
+
+<Property name="nWords">
+<Type>%Integer</Type>
+<InitialExpression>0</InitialExpression>
+</Property>
+
 <Property name="SrcId">
 <Type>%Integer</Type>
 </Property>
@@ -1682,7 +2501,13 @@ The Negation flag.</Description>
 <Value>Negation</Value>
 </Value>
 <Value name="7">
+<Value>nFmarkers</Value>
+</Value>
+<Value name="8">
 <Value>SrcId</Value>
+</Value>
+<Value name="9">
+<Value>nWords</Value>
 </Value>
 </Data>
 </Storage>
@@ -2351,7 +3176,7 @@ Negative emotional saturation of the review.</Description>
 
 <Class name="iknowAV.Hotels.Stat.ProcessingResult">
 <Super>%Persistent</Super>
-<TimeChanged>63419,50216.307879</TimeChanged>
+<TimeChanged>63428,41747.913709</TimeChanged>
 <TimeCreated>63389,70281.963334</TimeCreated>
 
 <Property name="DomainName">
@@ -2402,6 +3227,34 @@ The Negation flag</Description>
 <Type>%Boolean</Type>
 </Property>
 
+<Property name="CorrelationHotel">
+<Type>%Numeric</Type>
+</Property>
+
+<Property name="CorrelationFood">
+<Type>%Numeric</Type>
+</Property>
+
+<Property name="CorrelationComfort">
+<Type>%Numeric</Type>
+</Property>
+
+<Property name="CorrelationLocation">
+<Type>%Numeric</Type>
+</Property>
+
+<Property name="CorrelationHospitality">
+<Type>%Numeric</Type>
+</Property>
+
+<Property name="CorrelationService">
+<Type>%Numeric</Type>
+</Property>
+
+<Property name="CorrelationTerritory">
+<Type>%Numeric</Type>
+</Property>
+
 <Property name="ProcessingDateTime">
 <Description>
 Timestamp of processing endtime.</Description>
@@ -2416,6 +3269,8 @@ Timestamp of processing endtime.</Description>
 <IndexLocation>^iknowAV.Ho4531.ProcessingRCBCAI</IndexLocation>
 <StreamLocation>^iknowAV.Ho4531.ProcessingRCBCAS</StreamLocation>
 <Data name="ProcessingResultDefaultData">
+<Structure>listnode</Structure>
+<Subscript/>
 <Value name="1">
 <Value>%%CLASSNAME</Value>
 </Value>
@@ -2444,6 +3299,27 @@ Timestamp of processing endtime.</Description>
 <Value>Negation</Value>
 </Value>
 <Value name="10">
+<Value>CorrelationHotel</Value>
+</Value>
+<Value name="11">
+<Value>CorrelationFood</Value>
+</Value>
+<Value name="12">
+<Value>CorrelationComfort</Value>
+</Value>
+<Value name="13">
+<Value>CorrelationLocation</Value>
+</Value>
+<Value name="14">
+<Value>CorrelationHospitality</Value>
+</Value>
+<Value name="15">
+<Value>CorrelationService</Value>
+</Value>
+<Value name="16">
+<Value>CorrelationTerritory</Value>
+</Value>
+<Value name="17">
 <Value>ProcessingDateTime</Value>
 </Value>
 </Data>
@@ -2806,8 +3682,18 @@ Negative emotional saturation of the review.</Description>
 
 <Class name="iknowAV.Hotels.Stat.Statistics">
 <Super>%RegisteredObject</Super>
-<TimeChanged>63419,50520.002957</TimeChanged>
+<TimeChanged>63428,41599.733222</TimeChanged>
 <TimeCreated>63393,40728.632605</TimeCreated>
+
+<Method name="Min">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>a:%Numeric,b:%Numeric</FormalSpec>
+<ReturnType>%Numeric</ReturnType>
+<Implementation><![CDATA[
+	if (a < b) { return a }
+	else 	   { return b }
+]]></Implementation>
+</Method>
 
 <Method name="Mean">
 <ClassMethod>1</ClassMethod>
@@ -2852,6 +3738,38 @@ Negative emotional saturation of the review.</Description>
 <FormalSpec>valueList:%List</FormalSpec>
 <ReturnType>%Numeric</ReturnType>
 <Implementation><![CDATA[	return $zsqr(..Variance(valueList))
+]]></Implementation>
+</Method>
+
+<Method name="Cov">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>listX:%List,listY:%List</FormalSpec>
+<ReturnType>%Numeric</ReturnType>
+<Implementation><![CDATA[
+	set meanX = ..Mean(listX)
+	set meanY = ..Mean(listY)
+	
+	set sum = 0
+	set n = ..Min($listlength(listX), $listlength(listY))
+	
+	for i=1:1:n {
+		set sum = sum + (($list(listX, i) - meanX) * ($list(listY, i) - meanY))
+	}
+	
+	return sum / n
+]]></Implementation>
+</Method>
+
+<Method name="CorrelationCoefficient">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>listX:%List,listY:%List</FormalSpec>
+<ReturnType>%Numeric</ReturnType>
+<Implementation><![CDATA[
+	set covatiation = ..Cov(listX, listY)
+	set stdDevX = ..StdDev(listX)
+	set stdDevY = ..StdDev(listY)
+	
+	return covatiation / (stdDevX * stdDevY)
 ]]></Implementation>
 </Method>
 </Class>
