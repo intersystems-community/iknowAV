@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-09-02 10:58:45">
+<Export generator="Cache" version="25" zv="Cache for Windows (x86-64) 2015.1 (Build 201U)" ts="2014-09-04 16:21:35">
 <Class name="iknowAV.Hotels.Loader">
 <IncludeCode>%IKPublic</IncludeCode>
-<TimeChanged>63424,65156.99776</TimeChanged>
+<TimeChanged>63434,50473.852231</TimeChanged>
 <TimeCreated>63378,61408.462569</TimeCreated>
 
 <Method name="Load">
@@ -24,7 +24,7 @@ Load method try to loading Reviews with ID from 1 to 1000</Description>
 		write "Wrong parameters FromID|ToID.", !	
 		return $$$ERROR()
 	}
-	
+
 	write "Loading started at: ", $zdatetime($horolog), !
 	
 	// If the domain does not exist, create a new (also creating a configuration)
@@ -41,10 +41,13 @@ Load method try to loading Reviews with ID from 1 to 1000</Description>
 	
 	// Crating the Metadata fields	
 	do ..SetMetaDataFields(domName)	
+	
+	/*
 	// Creating dictionaries for Matching							
 	do ##class(iknowAV.util.main).CreateDictionaries(domName)	
 	// Blacklist are forming
 	do ##class(iknowAV.util.main).CreateBlackLists(domName, "GeneralBlackList")			
+	*/
 	
 	set myquery = "SELECT ID1 As ID, review_title as Title, hotel_id as HotelId,"_
 				  " hotel_name As HotelName, review_text as reviewText, country as Country, resort as Resort,"_
@@ -82,15 +85,17 @@ Load method try to loading Reviews with ID from 1 to 1000</Description>
     	write "The loader failed: ", $System.Status.DisplayError(tSC) 
     }
     
+    /*
     // Matching sources
     // =======================
     write !, "   matching sources...", !
-	
+
 	set tSC = ##class(%iKnow.Matching.MatchingAPI).MatchSources(domId)	
 	
 	if (tSC = $$$OK) { write "   sources are matched", ! }
 	else             { write "Error matching sources", $System.Status.DisplayError(tSC), ! }		
 	// =======================
+	*/
 	
 	#dim numOfSources As %Integer = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domId)
 	
@@ -211,6 +216,7 @@ Method of deleting a domain with all environment</Description>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	kill ^iknowAVDomainFolder(domName)
+	kill ^preferences
 	#dim confName As %String = "Conf"_domName
 	
 	do ..RemoveMetaDataFields(domName)	
@@ -221,11 +227,11 @@ Method of deleting a domain with all environment</Description>
 	
 	if (tSC '= $$$OK) { write "Cannot delete configuration :", confName, $System.Status.DisplayError(tSC), ! }
 	
-	// Clearing the tables
-	&sql(DELETE FROM iknowAV_Hotels_Stat.Review WHERE DomainName = :domName)
-	&sql(DELETE FROM iknowAV_Hotels_Stat.Hotel)
-	&sql(DELETE FROM iknowAV_Hotels_Stat.ReviewStat)
-	&sql(DELETE FROM iknowAV_Hotels_Stat.HotelStat)
+	// Kill Extent of all classes
+	do ##class(iknowAV.Hotels.Stat.Review).%KillExtent()
+	do ##class(iknowAV.Hotels.Stat.Hotel).%KillExtent()
+	do ##class(iknowAV.Hotels.Stat.ReviewStat).%KillExtent()
+	do ##class(iknowAV.Hotels.Stat.HotelStat).%KillExtent()
 	
 	set tSC = ##class(iknowAV.util.main).DeleteDomain(domName)
 	if (tSC '= $$$OK) { write "Can't delete domain :", domName, $System.Status.DisplayError(tSC), ! }
@@ -526,7 +532,7 @@ writeToFile - filename to write a full list of similar terms. If writeToFile = "
 
 <Class name="iknowAV.Hotels.Processing.Path">
 <Super>%Persistent</Super>
-<TimeChanged>63427,53341.412807</TimeChanged>
+<TimeChanged>63432,40172</TimeChanged>
 <TimeCreated>63382,57101.968597</TimeCreated>
 
 <Property name="PathId">
@@ -612,44 +618,202 @@ The Negation flag.</Description>
 <Class name="iknowAV.Hotels.Processing.Processing">
 <IncludeCode>%IKPublic</IncludeCode>
 <Super>%RegisteredObject</Super>
-<TimeChanged>63432,39513.736104</TimeChanged>
+<TimeChanged>63434,58789.469938</TimeChanged>
 <TimeCreated>63382,63941.777859</TimeCreated>
 
-<Parameter name="NEUTRALLOWBORDER">
-<Description>
-Parameter that determines the lower bound estimates of the hotel (1 to 5), in which the review is regarded as neutral.</Description>
-<Default>2.75</Default>
-</Parameter>
+<Method name="Start">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>domName:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	
+	kill ^preferences
+	
+	set fileNameIn = ^iknowAVDomainFolder(domName)_"prefs.txt"
+	set streamIn  = ##class(%Stream.FileCharacter).%New()
+	set tSC = streamIn.LinkToFile(fileNameIn)
+	
+	if (streamIn.%IsNull() ) {
+		write "There is no Preferences file. Will use the default settings.", !
+		
+		do streamIn.WriteLine("NEUTRALLOWBORDER = 2.75")	
+		do streamIn.WriteLine("NEUTRALHIGHBORDER = 3.25")	
+		do streamIn.WriteLine("PESSUSPECT = 0.99")	
+		do streamIn.WriteLine("NFMARKERS = 1")	
+		do streamIn.WriteLine("MAXSENTENCELENGTHTORETURN = 15")	
+		do streamIn.WriteLine("CALCALGORITHM = SENTENCE")	
+		do streamIn.WriteLine("NEGATION = IGNORE")
+		do streamIn.WriteLine("GRADEMULTIPLIER = 5")
+		do streamIn.WriteLine("GRADESUSPECTDIFF = 1")
+		
+		do streamIn.%Save()
+	}
+	
+	if (tSC '= $$$OK) {
+		return tSC
+	}
+	
+	while '(streamIn.AtEnd) {
+				
+		set line = streamIn.ReadLine()
+		
+		if ($extract(line, 1, 1) = "#") { continue }
+		elseif (($extract(line, 1, 1) '= "") && ($extract(line, 1, 1) '= " ")) {
+			set line = $translate(line, " ", "")
+		
+			set parameter = $piece(line, "=", 1)
+			set value = $piece(line, "=", 2)
+		
+			set ^preferences(parameter) = value
+		}
+	}
+	
+	if '($data(^preferences("CALCALGORITHM"))) {
+		write "There is no CALCALGORITHM parameter. Use default settings: sentence.", !
+		set ^preferences("CALCALGORITHM") = "sentence"	
+	}
+	else {
+		if (($ZCONVERT(^preferences("CALCALGORITHM"),"L") '= "sentence") && ($ZCONVERT(^preferences("CALCALGORITHM"),"L") '= "path")) {
+			write "CALCALGORITHM has not valid value. Use default settings: sentence.", !
+			set ^preferences("CALCALGORITHM") = "sentence"
+		}     
+	}
+	
+	if '($data(^preferences("NEUTRALLOWBORDER"))) {
+		write "There is no NEUTRALLOWBORDER parameter. Use default settings: 2.75.", !
+		set ^preferences("NEUTRALLOWBORDER") = 2.75	
+	}
+	else {
+		if ($ISVALIDNUM(^preferences("NEUTRALLOWBORDER"))) {
+			write "NEUTRALLOWBORDER is not valid number. Use default settings: 2.75.", !
+			set ^preferences("NEUTRALLOWBORDER") = 2.75
+		}
+	}
+	
+	if '($data(^preferences("NFMARKERS"))) {
+		write "There is no NFMARKERS parameter. Use default settings: 1.", !
+		set ^preferences("NFMARKERS") = 1	
+	}
+	else {
+		if ($ISVALIDNUM(^preferences("NFMARKERS"))) {
+			write "NFMARKERS is not valid number. Use default settings: 1.", !
+			set ^preferences("NFMARKERS") = 1
+		}
+	}
+	
+	if '($data(^preferences("PESSUSPECT"))) {
+		write "There is no PESSUSPECT parameter. Use default settings: 0.99.", !
+		set ^preferences("PESSUSPECT") = 0.99
+	}
+	else {
+		if ($ISVALIDNUM(^preferences("PESSUSPECT"))) {
+			write "PESSUSPECT is not valid number. Use default settings: 0.99.", !
+			set ^preferences("PESSUSPECT") = 0.99
+		}
+	}
+	
+	if '($data(^preferences("NEUTRALHIGHBORDER"))) {
+		write "There is no NEUTRALHIGHBORDER parameter. Use default settings: 3.25.", !
+		set ^preferences("NEUTRALHIGHBORDER") = 3.25	
+	}
+	else {
+		if '($ISVALIDNUM(^preferences("NEUTRALHIGHBORDER"))) {
+			write "NEUTRALHIGHBORDER is not valid number. Use default settings: 3.25.", !
+			set ^preferences("NEUTRALHIGHBORDER") = 3.25	
+		}     
+	}
+	
+	if '($data(^preferences("MAXSENTENCELENGTHTORETURN"))) {
+		write "There is no MAXSENTENCELENGTHTORETURN parameter. Use default settings: 15.", !
+		set ^preferences("MAXSENTENCELENGTHTORETURN") = 15
+	}
+	else {
+		if '($ISVALIDNUM(^preferences("MAXSENTENCELENGTHTORETURN"))) {
+			write "MAXSENTENCELENGTHTORETURN is not valid number. Use default settings: 15.", !
+			set ^preferences("MAXSENTENCELENGTHTORETURN") = 15	
+		}     
+	}
+	
+	if '($data(^preferences("GRADEMULTIPLIER"))) {
+		write "There is no GRADEMULTIPLIER parameter. Use default settings: 5.", !
+		set ^preferences("GRADEMULTIPLIER") = 5	
+	}
+	else {
+		if '($ISVALIDNUM(^preferences("GRADEMULTIPLIER"))) {
+			write "GRADEMULTIPLIER is not valid number. Use default settings: 5.", !
+			set ^preferences("GRADEMULTIPLIER") = 5
+		}     
+	}	
+	
+	if '($data(^preferences("GRADESUSPECTDIFF"))) {
+		write "There is no GRADESUSPECTDIFF parameter. Use default settings: 1.", !
+		set ^preferences("GRADESUSPECTDIFF") = 1	
+	}
+	else {
+		if '($ISVALIDNUM(^preferences("GRADESUSPECTDIFF"))) {
+			write "GRADESUSPECTDIFF is not valid number. Use default settings: 1.", !
+			set ^preferences("GRADESUSPECTDIFF") = 1
+		}     
+	}		
+	
+	if '($data(^preferences("NEGATION"))) {
+		write "There is no NEGATION parameter. Use default settings: ignore.", !
+		set ^preferences("NEGATION") = "ignore"
+	}	
+	else {
+		if (($ZCONVERT(^preferences("NEGATION"),"L") '= "exclude") && ($ZCONVERT(^preferences("NEGATION"),"L") '= "ignore")) {
+			write "NEGATION has not valid value. Use default settings: ignore.", !
+			set ^preferences("NEGATION") = "ignore"
+		}     
+	}
 
-<Parameter name="NEUTRALHIGHBORDER">
-<Description>
-Parameter that determines the upper bound estimate of the hotel (1 to 5), in which the review is regarded as neutral.</Description>
-<Default>3.25</Default>
-</Parameter>
-
-<Parameter name="PESSUSPECT">
-<Description>
-Parameter responsible for the evaluation of suspicious reviews. 
-If PES of Review greater than the specified parameter values​​, it is considered suspicious.</Description>
-<Default>0.99</Default>
-</Parameter>
-
-<Parameter name="MAXSENTENCELENGTHTORETURN">
-<Description>
-Parameter that determines the maximum number of words in sentences that are processed in the methods GetCategoryDetail().</Description>
-<Default>15</Default>
-</Parameter>
-
-<Parameter name="NFMARKERS">
-<Default>1</Default>
-</Parameter>
+	
+	
+	if ($data(^preferences("CALCALGORITHM"))) {
+		if ($ZCONVERT(^preferences("CALCALGORITHM"),"L") = "path") {
+			if ($data(^preferences("NEGATION"))) {
+				if ($ZCONVERT(^preferences("NEGATION"),"L") = "exclude") {
+					set tSC = ##class(iknowAV.Hotels.Processing.Processing).ProcessAllSourcesPaths(domName, "exclude")
+				}
+				else {
+					set tSC = ##class(iknowAV.Hotels.Processing.Processing).ProcessAllSourcesPaths(domName, "ignore")
+				}
+			}
+				else {
+					write "Settings data corruption.", !
+					return ERROR("Settings data corruption. NEGATION Parameter is missing. Reload the domain or fix the settings data.")	
+				}
+		}
+		else {
+			if ($data(^preferences("NEGATION"))) {
+				if ($ZCONVERT(^preferences("NEGATION"),"L") = "exclude") {
+					set tSC = ##class(iknowAV.Hotels.Processing.Processing).ProcessAllSources(domName, "exclude")
+				}
+				else {
+					set tSC = ##class(iknowAV.Hotels.Processing.Processing).ProcessAllSources(domName, "ignore")
+				}
+			}
+				else {
+					write "Settings data corruption.", !
+					return ERROR("Settings data corruption. NEGATION Parameter is missing. Reload the domain or fix the settings data.")	
+				}
+		}
+	}
+	else {
+		write "Settings data corruption.", !
+		return ERROR("Settings data corruption. CALCALGORITHM Parameter is missing. Reload the domain or fix the settings data.")	
+	}
+	
+	return tSC
+]]></Implementation>
+</Method>
 
 <Method name="ProcessAllSources">
 <Description>
 Method of processing all domain sources. Processing dictionaries, emarkers, fmarkers, total evaluation of hotels, user sentences and etc.
-domName - Domain name, applyNegation: 1 - include in processing sentences with Negation, 0 - do not include.</Description>
+domName - Domain name, negation: exclude - Exclude sentences with negation from processing, ignore - ignore negation.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,applyNegation:%Boolean=0</FormalSpec>
+<FormalSpec>domName:%String,negation:%String="ignore"</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	
@@ -710,14 +874,20 @@ domName - Domain name, applyNegation: 1 - include in processing sentences with N
 	}
 
 	// Processing Negation
+	write "   Processing Negation.."
 	do ..ProcessNegationSentences(domName)
+	write "  Done.", !
 	
-	// do ..PreProcessFunctionalMarkers(domName, ..#NFMARKERS)
+	/*
+	set nFMarkers = ^preferences("NFMARKERS")
 
+	do ..PreProcessFunctionalMarkers(domName, nFMarkers)
+	*/
+	
 	kill ^review
 	
 	write "   Processing Functional markers.."
-	set tSC = ..ProcessFunctionalMarkers(domName, applyNegation)
+	set tSC = ..ProcessFunctionalMarkers(domName, negation)
 	
 	if (tSC = $$$OK) {
 		write "  Done.", !
@@ -735,7 +905,7 @@ domName - Domain name, applyNegation: 1 - include in processing sentences with N
 	}
 	
 	write "   Processing Emotional Stats.."
-	set tSC =  ..ProcessingStats(domName, applyNegation)
+	set tSC =  ..ProcessingStats(domName, negation, "sentence")
 	
 	if (tSC '= $$$OK) {
 		do $System.Status.GetErrorText(tSC)
@@ -757,7 +927,10 @@ domName - Domain name, applyNegation: 1 - include in processing sentences with N
 	}
 	
 	write "   Processing User Sentences for Categories.."
-	set tSC = ..ProcessAllHotelsSentences(domName, ..#MAXSENTENCELENGTHTORETURN)
+	
+	set maxLength = ^preferences("MAXSENTENCELENGTHTORETURN")
+	
+	set tSC = ..ProcessAllHotelsSentences(domName, maxLength)
 	
 	if (tSC '= $$$OK) {
 		do $System.Status.GetErrorText(tSC)
@@ -890,14 +1063,6 @@ Method of processing negative sentences.</Description>
 	            	set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),4) = $list(^iknowAV.Hotels.PrE05F.SentenceD(id),5)
 	            	set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),5) = temp
 	            	set $list(^iknowAV.Hotels.PrE05F.SentenceD(id),6) = -1
-	            	
-					set currentSentence = ##class(%iKnow.Queries.SentenceAPI).GetValue(domainId, sentenceId)
-
-					set sentenceLength = $length(currentSentence, " ")
-
-					if (sentenceLength < 10) {
-						set ^shortNegSent = ^shortNegSent + 1
-					}
 	           	}
 	        }
 	        
@@ -1061,7 +1226,7 @@ The method analyzes the sentences of the sources on the emotional markers and fi
 <Description>
 The method analyzes the sentences of the sources on the functional markers and fills fields iKnowRating* in the iknowAV_Hotels_Stat.Review table.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,applyNegation:%Boolean=0</FormalSpec>
+<FormalSpec>domName:%String,negation:%String="ignore"</FormalSpec>
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
@@ -1069,6 +1234,20 @@ The method analyzes the sentences of the sources on the functional markers and f
 	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
 	
 	set length = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId)
+	
+	if ($data(^preferences("GRADEMULTIPLIER"))) {
+		if ($ISVALIDNUM(^preferences("GRADEMULTIPLIER"))) {
+			set gradeMultiplier = ^preferences("GRADEMULTIPLIER")
+		}
+		else {
+			write "GRADEMULTIPLIER is not valid number. Use default settings", !
+			set gradeMultiplier = ^preferences("GRADEMULTIPLIER")
+		}
+	}	 
+	else {
+		write "Settings data corruption.", !
+		return ERROR("Settings data corruption. NEGATION Parameter is missing. Reload the domain or fix the settings data.")	
+	}		
 			
 	// The functional marker's category.
 	set markerCategory = ""
@@ -1145,7 +1324,7 @@ The method analyzes the sentences of the sources on the functional markers and f
 					if $data(^review(srcId,"grade")) {	
 					
 						// Converting grade in the form of 1 to 5
-						set ^review(srcId,"grade") = ^review(srcId,"grade") * 5
+						set ^review(srcId,"grade") = ^review(srcId,"grade") * gradeMultiplier
 						
 						set ^review(srcId,markerCategory) = ^review(srcId,"grade")
 						set ^review(srcId,"gradedCategoryCount") = ^review(srcId,"gradedCategoryCount") + 1
@@ -1196,15 +1375,23 @@ The method analyzes the sentences of the sources on the functional markers and f
 				
 				// Obtain the sentence values from table
 				&sql(SELECT Negation, Negative, Positive, SrcId 
-					 INTO :negation, :sNegative, :sPositive, :srcId 
+					 INTO :Negation, :sNegative, :sPositive, :srcId 
 					 FROM  iknowAV_Hotels_Processing.Sentence 
 					 WHERE SentenceId = :sentenceId AND DomainName = :domName)
 				
 				// If the query does not return anything go to next sentence
 				if (SQLCODE = 100) { continue }
 				
-				// Skipping sentences with the negation, if specified the applyNegation parameter
-				if ((applyNegation = 0) && (negation = -1)) { continue } 
+				// Skipping sentences with the negation, if specified the negation parameter
+				if ((negation = "exclude") && (Negation = -1)) { continue } 
+				elseif ((negation = "ignore") && (Negation = -1)) {
+					&sql(UPDATE iknowAV_Hotels_Processing.Sentence (Negation, Negative, Positive)
+					 	 VALUES(1, :sPositive, :sNegative)
+					 	 WHERE SentenceId = :sentenceId)
+					set temp = sPositive 
+					set sPositive = sNegative
+					set sNegative = temp
+				}
 						
 				// Accumulate the values in the appropriate category
 				set ^review(srcId,"positive") = ^review(srcId,"positive") + sPositive
@@ -1227,7 +1414,7 @@ The method analyzes the sentences of the sources on the functional markers and f
 			set ^review(srcId,"iKnowRating") = ^review(srcId,"totalGrade") / ^review(srcId,"gradedCategoryCount")
 			
 			// Present Emarkers grade in the form of 1 to 5.
-			set ^review(srcId,"iKnowEmarkersRating") = $SYSTEM.SQL.CEILING($normalize((^review(srcId,"totalPositive") / (^review(srcId,"totalPositive") + ^review(srcId,"totalNegative"))) * 5 - 0.1, -1) + 1)
+			set ^review(srcId,"iKnowEmarkersRating") = $SYSTEM.SQL.CEILING($normalize((^review(srcId,"totalPositive") / (^review(srcId,"totalPositive") + ^review(srcId,"totalNegative"))) * gradeMultiplier - 0.1, -1) + 1)
 		}
 				
 		&sql(SELECT hotelId INTO :hotelId FROM iknowAV_Hotels_Stat.Review WHERE SourceId = :srcId)
@@ -1288,8 +1475,22 @@ The method of calculating the final evaluation of hotel.</Description>
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+	kill hotelIdList
+	
 	// Obtain a list of all hotels
-	&sql(SELECT %DLIST(DISTINCT HotelId) INTO :hotelIdList FROM iknowAV_Hotels_Stat.Review)
+	&sql(DECLARE HotelList Cursor FOR
+		 SELECT DISTINCT HotelId INTO :tempHotelId FROM iknowAV_Hotels_Stat.Review ORDER BY HotelId)
+	
+	&sql(open HotelList)
+	&sql(fetch HotelList)
+	
+	while (SQLCODE = 0) {
+		set $list(hotelIdList,*+1) = tempHotelId
+		
+		&sql(fetch HotelList)	
+	}
+	
+	&sql(close HotelList)
 	
 	set length = $listlength(hotelIdList)
 
@@ -1311,10 +1512,23 @@ The method of calculating the final evaluation of hotel.</Description>
 		     	  :authorRatingHospitality, :authorRatingLocation, :authorRatingService, :authorRatingTerritory
 		     FROM iknowAV_Hotels_Stat.Review
 		     WHERE HotelId = :hotelId)
-		     
-		set neutralHighBorder = ..#NEUTRALHIGHBORDER
-		set neutralLowBorder = ..#NEUTRALLOWBORDER 
-		     
+		   
+		if ($data(^preferences("NEUTRALHIGHBORDER"))) {
+				set neutralHighBorder = ^preferences("NEUTRALHIGHBORDER")
+		} 
+		else {    
+			write "Settings data corruption.", !
+			return ERROR("Settings data corruption. Reload the domain or fix the settings data.")	
+		}
+		
+		if ($data(^preferences("NEUTRALLOWBORDER"))) {
+				set neutralLowBorder = ^preferences("NEUTRALLOWBORDER")
+		}
+		else {
+			write "Settings data corruption.", !
+			return ERROR("Settings data corruption. Reload the domain or fix the settings data.")	 
+		}
+	     
 		&sql(SELECT COUNT(ID) INTO :positiveReviews FROM iknowAV_Hotels_Stat.Review WHERE HotelId = :hotelId AND iKnowRating > :neutralHighBorder)
 		&sql(SELECT COUNT(ID) INTO :negativeReviews FROM iknowAV_Hotels_Stat.Review WHERE HotelId = :hotelId AND iKnowRating < :neutralLowBorder)
 		&sql(SELECT COUNT(ID) INTO :neutralReviews FROM iknowAV_Hotels_Stat.Review WHERE HotelId = :hotelId AND iKnowRating <= :neutralHighBorder AND iKnowRating >= :neutralLowBorder)
@@ -1352,7 +1566,7 @@ The method of calculating the final evaluation of hotel.</Description>
 <Description>
 Method, calculating the summary statistics and the statistics of hotels (Emotional saturation).</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,applyNegation:%Boolean=0</FormalSpec>
+<FormalSpec>domName:%String,negation:%String="ignore",calcAlgorithm:%String</FormalSpec>
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
@@ -1407,7 +1621,8 @@ Method, calculating the summary statistics and the statistics of hotels (Emotion
 	set processingResult.PositiveIndex = positiveEmotionalSaturation / processingResult.EDictionarySize * 1000
 	set processingResult.NegativeIndex = negativeEmotionalSaturation / processingResult.EDictionarySize * 1000
 	set processingResult.NumberOfSources = numOfSources	
-	set processingResult.Negation = applyNegation	
+	set processingResult.Negation = negation	
+	set processingResult.CaclAlgorithm = calcAlgorithm
 	set processingResult.ProcessingDateTime = $zdatetime($h,3)
 	
 	&sql(SELECT %DLIST(UserRating), %DLIST(iKnowRating), %DLIST(UserRatingComfort), %DLIST(iKnowRatingComfort), %DLIST(UserRatingFood), %DLIST(iKnowRatingFood), 
@@ -1415,15 +1630,30 @@ Method, calculating the summary statistics and the statistics of hotels (Emotion
 				%DLIST(iKnowRatingService), %DLIST(UserRatingTerritory), %DLIST(iKnowRatingTerritory)
 		 INTO :userRatingList, :iknowRatingList, :userRatingComfortList, :iknowRatingComfortList, :userRatingFoodList, :iknowRatingFoodList, :userRatingHospitalityList, :iknowRatingHospitalityList,
 		 	  :userRatingLocationList, :iknowRatingLocationList, :userRatingServiceList, :iknowRatingServiceList, :userRatingTerritoryList, :iknowRatingTerritoryList
-		 FROM iknowAV_Hotels_Stat.Hotel)
+		 FROM iknowAV_Hotels_Stat.Hotel
+		 ORDER BY HotelId)
 	
-	set processingResult.CorrelationComfort = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingComfortList, iknowRatingComfortList)
-	set processingResult.CorrelationHotel = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingList, iknowRatingList)
-	set processingResult.CorrelationFood = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingFoodList, iknowRatingFoodList)
-	set processingResult.CorrelationLocation = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingLocationList, iknowRatingLocationList)
-	set processingResult.CorrelationService = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingServiceList, iknowRatingServiceList)
-	set processingResult.CorrelationHospitality = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingHospitalityList, iknowRatingHospitalityList)
-	set processingResult.CorrelationTerritory = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingTerritoryList, iknowRatingTerritoryList)
+	if (($listlength(userRatingComfortList) > 0) && ($listlength(iknowRatingComfortList) > 0)) {
+		set processingResult.CorrelationComfort = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingComfortList, iknowRatingComfortList)
+	}
+	if (($listlength(userRatingList) > 0) && ($listlength(iknowRatingList) > 0)) {
+		set processingResult.CorrelationHotel = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingList, iknowRatingList)
+	}
+	if (($listlength(userRatingFoodList) > 0) && ($listlength(iknowRatingFoodList) > 0)) {
+		set processingResult.CorrelationFood = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingFoodList, iknowRatingFoodList)
+	}
+	if (($listlength(userRatingLocationList) > 0) && ($listlength(iknowRatingLocationList) > 0)) {
+		set processingResult.CorrelationLocation = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingLocationList, iknowRatingLocationList)
+	}
+	if (($listlength(userRatingServiceList) > 0) && ($listlength(iknowRatingServiceList) > 0)) {
+		set processingResult.CorrelationService = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingServiceList, iknowRatingServiceList)
+	}
+	if (($listlength(userRatingHospitalityList) > 0) && ($listlength(iknowRatingHospitalityList) > 0)) {
+		set processingResult.CorrelationHospitality = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingHospitalityList, iknowRatingHospitalityList)
+	}
+	if (($listlength(userRatingTerritoryList) > 0) && ($listlength(iknowRatingTerritoryList) > 0)) {
+		set processingResult.CorrelationTerritory = ##class(iknowAV.Hotels.Stat.Statistics).CorrelationCoefficient(userRatingTerritoryList, iknowRatingTerritoryList)
+	}
 	
 	set tSC = processingResult.%Save()
 	
@@ -1470,13 +1700,36 @@ The method of calculating an estimate of suspicion of each review.</Description>
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+	if ($data(^preferences("GRADESUSPECTDIFF"))) {
+		if ($ISVALIDNUM(^preferences("GRADESUSPECTDIFF"))) {
+			set gradeSuspectDiff = ^preferences("GRADESUSPECTDIFF")
+		}
+		else {
+			write "GRADEMULTIPLIER is not valid number. Use default settings", !
+			set gradeSuspectDiff = ^preferences("GRADESUSPECTDIFF")
+		}
+	}	 
+	else {
+		write "Settings data corruption.", !
+		return ERROR("Settings data corruption. GRADESUSPECT Parameter is missing. Reload the domain or fix the settings data.")	
+	}
+	
 	&sql(SELECT %DLIST(PositiveEmotionalSaturation) INTO :pesList FROM iknowAV_Hotels_Stat.ReviewStat WHERE HotelId = :hotelId)
+	&sql(SELECT AVG(iKnowRating) INTO :meanRating FROM iknowAV_Hotels_Stat.Review WHERE HotelId = :hotelId)
 	
 	set stdDev = ##class(iknowAV.Hotels.Stat.Statistics).StdDev(pesList)
 	set mean = ##class(iknowAV.Hotels.Stat.Statistics).Mean(pesList)
 	
 	&sql(SELECT %DLIST(ID) INTO :idList FROM iknowAV_Hotels_Stat.ReviewStat WHERE HotelId = :hotelId)
-
+	
+	if ($data(^preferences("PESSUSPECT"))) {
+			set pesSuspect = ^preferences("PESSUSPECT")
+	}
+	else {
+		write "Settings data corruption.", !
+		return ERROR("Settings data corruption. Reload the domain or fix the settings data.")	
+	}
+	
 	set length = $listlength(idList)
 	
 	for i=1:1:length {
@@ -1493,8 +1746,12 @@ The method of calculating an estimate of suspicion of each review.</Description>
 	     }
 	     
 	     
-	     if ((reviewStat.PositiveEmotionalSaturation / reviewStat.EmotionalSaturation) > ..#PESSUSPECT) {
+	     if ((reviewStat.PositiveEmotionalSaturation / reviewStat.EmotionalSaturation) > pesSuspect) {
 		     set suspect = suspect + 1
+	     }
+	     
+	     if (reviewStat.iKnowRating - mean > gradeSuspectDiff) {
+	     	set suspect = suspect + 1
 	     }
 	     
 	     set reviewId = reviewStat.ReviewId 
@@ -1586,15 +1843,10 @@ Method of clearing the Sentence table.</Description>
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
+		
+	set tSC = ##class(iknowAV.Hotels.Processing.Sentence).%KillExtent()
 	
-	&sql(DELETE FROM iknowAV_Hotels_Processing.Sentence)
-	
-	if (SQLCODE < 0) { 
-		return $$$ERROR("Can't clear the iknowAV_Hotels_Proessing.Sentence, SQLCODE: ", SQLCODE) 
-	}
-	else { 
-		return $$$OK 
-	}
+	return tSC
 ]]></Implementation>
 </Method>
 
@@ -1607,26 +1859,19 @@ Method of clearing statistics (ReviewStat and HotelStat tables).</Description>
 <Implementation><![CDATA[
 	set tSC = $$$OK
 	
-	&sql(DELETE FROM iknowAV_Hotels_Stat.ReviewStat)
+	set tST = ##class(iknowAV.Hotels.Stat.ReviewStat).%KillExtent()
 	
-	if (SQLCODE < 0) {
-		set tSC = 0
-		write "Can't clear table iknowAV_Hotels_Stat.ReviewStat, SQLCODE: ", SQLCODE, !
+	if (tST '= $$$OK ) {
+		set tSC = $$$ERROR("Can't KillExtent for iknowAV.Hotels.Stat.ReviewStat")	
 	}
 	
-	&sql(DELETE FROM iknowAV_Hotels_Stat.HotelStat)
+	set tST = ##class(iknowAV.Hotels.Stat.HotelStat).%KillExtent()
 	
-	if (SQLCODE < 0) {
-		set tSC = 0
-		write "Can't clear table iknowAV_Hotels_Stat.HotelStat, SQLCODE: ", SQLCODE, !
+	if (tST '= $$$OK ) {
+		set tSC = $$$ERROR("Can't KillExtent for iknowAV.Hotels.Stat.HotelStat")	
 	}
 	
-	if (tSC = 0) {
-		return $$$ERROR("Can't clear stats")
-	}
-	else {
-		return tSC
-	}
+	return tSC
 ]]></Implementation>
 </Method>
 
@@ -1932,6 +2177,89 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 ]]></Implementation>
 </Method>
 
+<Method name="WriteProcessingResultsToXML">
+<Description>
+The method provides output of calculated data to XML file for usage in external UI
+domName - Domain name.
+fileName - name of resulting XML file</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>domName:%String,fileName:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)
+	
+	#dim filenameOut As %String = ^iknowAVDomainFolder(domName)_fileName
+	write "   generating results output file... ", filenameOut,!
+	#dim streamOut As %Stream.FileCharacter = ##class(%Stream.FileCharacter).%New()
+	set status = streamOut.LinkToFile(filenameOut)	
+
+	if (status'=$$$OK)
+	{
+		write "Cannot create output file",!
+		return $$$ERROR("Cannot create output file")
+	}
+	
+	do streamOut.WriteLine("<result>")
+	
+	&sql(SELECT %DLIST(ID) INTO :idList FROM iknowAV_Hotels_Stat.Hotel)	
+	
+	set hotelsNum = $listlength(idList)
+	
+	write "hotels number is: ", hotelsNum,!
+	
+	for i=1:1:hotelsNum
+	{
+	
+	    set Id = $list(idList, i)
+	    set hotel = ##class(iknowAV.Hotels.Stat.Hotel).%OpenId($list(idList, i))
+	    set hotelId = hotel.HotelId
+	     
+		&sql(SELECT HotelName, iKnowRating, iKnowRatingFood, iKnowRatingComfort, iKnowRatingService, iKnowRatingHospitality, iKnowRatingLocation, iKnowRatingTerritory
+ 		 	  INTO :hotelName, :total, :food, :comfort, :service, :hospitality, :location, :territory 
+ 		 	  FROM iknowAV_Hotels_Stat.Hotel WHERE HotelId = :hotelId)	
+		
+
+		#dim finalText As %String = ##class(iknowAV.Hotels.Stat.Hotel).GetFinalText(hotelId)
+		
+		do streamOut.WriteLine("<hotel id="""_hotelId_""">")
+		do streamOut.WriteLine("<abstract>"_finalText_"</abstract>")
+		
+		set sentListFood = ..GetRandomSentences(domName, hotelId, "Food")
+		if ($listlength(sentListFood)>0) {set res = $list(sentListFood,1)} else	{set res = ""}	
+		do streamOut.WriteLine("<food rating="""_food_""">"_res_"</food>")	
+		
+		set sentListComfort = ..GetRandomSentences(domName, hotelId, "Comfort")
+		if ($listlength(sentListComfort)>0) {set res = $list(sentListComfort,1)} else	{set res = ""}
+		do streamOut.WriteLine("<comfort rating="""_comfort_""">"_res_"</comfort>")	
+		
+		set sentListService = ..GetRandomSentences(domName, hotelId, "Service")
+		if ($listlength(sentListService)>0) {set res = $list(sentListService,1)} else	{set res = ""}
+		do streamOut.WriteLine("<service rating="""_service_""">"_res_"</service>")
+		
+		set sentListHospitality = ..GetRandomSentences(domName, hotelId, "Hospitality")
+		if ($listlength(sentListHospitality)>0) {set res = $list(sentListHospitality,1)} else	{set res = ""}
+		do streamOut.WriteLine("<hospitality rating="""_hospitality_""">"_res_"</hospitality>")
+		
+		set sentListLocation = ..GetRandomSentences(domName, hotelId, "Location")
+		if ($listlength(sentListLocation)>0) {set res = $list(sentListLocation,1)} else	{set res = ""}
+		do streamOut.WriteLine("<location rating="""_location_""">"_res_"</location>")
+		
+		set sentListTerritory = ..GetRandomSentences(domName, hotelId, "Territory")
+		if ($listlength(sentListTerritory)>0) {set res = $list(sentListTerritory,1)} else	{set res = ""}
+		do streamOut.WriteLine("<territory rating="""_territory_""">"_res_"</territory>")
+		
+		do streamOut.WriteLine("</hotel>")		 
+	
+	}
+	
+	do streamOut.WriteLine("</result>")
+	
+	do streamOut.%Save()
+	
+	return $$$OK
+]]></Implementation>
+</Method>
+
 <UDLText name="T">
 <Content><![CDATA[
 // ======= FOR PATHS ========
@@ -1942,9 +2270,9 @@ numberOfWordsInSentence - maximum number of words in a single sentence.</Descrip
 <Method name="ProcessAllSourcesPaths">
 <Description>
 Method of processing all domain sources. Processing dictionaries, emarkers, fmarkers, total evaluation of hotels, user sentences and etc.
-domName - Domain name, applyNegation: 1 - include in processing sentences with Negation, 0 - do not include.</Description>
+domName - Domain name, negation: exclude - Exclude paths with negation from processing, ignore - ignore negation.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,applyNegation:%Boolean=0</FormalSpec>
+<FormalSpec>domName:%String,negation:%String=0</FormalSpec>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
 	
@@ -2010,7 +2338,7 @@ domName - Domain name, applyNegation: 1 - include in processing sentences with N
 	kill ^review
 	
 	write "   Processing Functional markers.."
-	set tSC = ..ProcessFunctionalMarkersPaths(domName, applyNegation)
+	set tSC = ..ProcessFunctionalMarkersPaths(domName, negation)
 	
 	if (tSC = $$$OK) {
 		write "  Done.", !
@@ -2028,7 +2356,7 @@ domName - Domain name, applyNegation: 1 - include in processing sentences with N
 	}
 	
 	write "   Processing Emotional Stats.."
-	set tSC =  ..ProcessingStats(domName, applyNegation)
+	set tSC =  ..ProcessingStats(domName, negation, "path")
 	
 	if (tSC '= $$$OK) {
 		do $System.Status.GetErrorText(tSC)
@@ -2174,7 +2502,7 @@ Method of processing negative paths.</Description>
 <Description>
 The method analyzes the paths of the sources on the functional markers and fills fields iKnowRating* in the iknowAV_Hotels_Stat.Review table.</Description>
 <ClassMethod>1</ClassMethod>
-<FormalSpec>domName:%String,applyNegation:%Boolean=0</FormalSpec>
+<FormalSpec>domName:%String,negation:%Boolean=0</FormalSpec>
 <Private>1</Private>
 <ReturnType>%Status</ReturnType>
 <Implementation><![CDATA[
@@ -2182,6 +2510,21 @@ The method analyzes the paths of the sources on the functional markers and fills
 	set domainId = ##class(iknowAV.util.main).GetDomainId(domName)	
 	
 	set length = ##class(%iKnow.Queries.SourceAPI).GetCountByDomain(domainId)
+	
+	
+	if ($data(^preferences("GRADEMULTIPLIER"))) {
+		if ($ISVALIDNUM(^preferences("GRADEMULTIPLIER"))) {
+			set gradeMultiplier = ^preferences("GRADEMULTIPLIER")
+		}
+		else {
+			write "GRADEMULTIPLIER is not valid number. Use default settings", !
+			set gradeMultiplier = ^preferences("GRADEMULTIPLIER")
+		}
+	}	 
+	else {
+		write "Settings data corruption.", !
+		return ERROR("Settings data corruption. NEGATION Parameter is missing. Reload the domain or fix the settings data.")	
+	}		
 			
 	// The functional marker's category.
 	set markerCategory = ""
@@ -2258,7 +2601,7 @@ The method analyzes the paths of the sources on the functional markers and fills
 					if $data(^review(srcId,"grade")) {	
 					
 						// Converting grade in the form of 1 to 5
-						set ^review(srcId,"grade") = ^review(srcId,"grade") * 5
+						set ^review(srcId,"grade") = ^review(srcId,"grade") * gradeMultiplier
 						
 						set ^review(srcId,markerCategory) = ^review(srcId,"grade")
 						set ^review(srcId,"gradedCategoryCount") = ^review(srcId,"gradedCategoryCount") + 1
@@ -2309,15 +2652,23 @@ The method analyzes the paths of the sources on the functional markers and fills
 				
 				// Obtain the path values from table
 				&sql(SELECT Negation, Negative, Positive, SrcId 
-					 INTO :negation, :sNegative, :sPositive, :srcId 
+					 INTO :Negation, :sNegative, :sPositive, :srcId 
 					 FROM  iknowAV_Hotels_Processing.Path 
-					 WHERE PathId = :pathId AND DomainName = :domName)
+					 WHERE PathId = :pathId)
 				
 				// If the query does not return anything go to next sentence
 				if (SQLCODE = 100) { continue }
 				
-				// Skipping sentences with the negation, if specified the applyNegation parameter
-				if ((applyNegation = 0) && (negation = -1)) { continue } 
+				// Skipping sentences with the negation, if specified the negation parameter
+				if ((negation = "exclude") && (Negation = -1)) { continue } 
+				elseif ((negation = "ignore") && (Negation = -1)) {
+					&sql(UPDATE iknowAV_Hotels_Processing.Path (Negation, Negative, Positive)
+					 	 VALUES(1, :sPositive, :sNegative)
+					 	 WHERE PathId = :pathId)
+					set temp = sPositive 
+					set sPositive = sNegative
+					set sNegative = temp
+				}
 						
 				// Accumulate the values in the appropriate category
 				set ^review(srcId,"positive") = ^review(srcId,"positive") + sPositive
@@ -2340,7 +2691,7 @@ The method analyzes the paths of the sources on the functional markers and fills
 			set ^review(srcId,"iKnowRating") = ^review(srcId,"totalGrade") / ^review(srcId,"gradedCategoryCount")
 			
 			// Present Emarkers grade in the form of 1 to 5.
-			set ^review(srcId,"iKnowEmarkersRating") = $SYSTEM.SQL.CEILING($normalize((^review(srcId,"totalPositive") / (^review(srcId,"totalPositive") + ^review(srcId,"totalNegative"))) * 5 - 0.1, -1) + 1)
+			set ^review(srcId,"iKnowEmarkersRating") = $SYSTEM.SQL.CEILING($normalize((^review(srcId,"totalPositive") / (^review(srcId,"totalPositive") + ^review(srcId,"totalNegative"))) * gradeMultiplier - 0.1, -1) + 1)
 		}
 				
 		&sql(SELECT hotelId INTO :hotelId FROM iknowAV_Hotels_Stat.Review WHERE SourceId = :srcId)
@@ -3176,7 +3527,7 @@ Negative emotional saturation of the review.</Description>
 
 <Class name="iknowAV.Hotels.Stat.ProcessingResult">
 <Super>%Persistent</Super>
-<TimeChanged>63428,41747.913709</TimeChanged>
+<TimeChanged>63434,49315.611084</TimeChanged>
 <TimeCreated>63389,70281.963334</TimeCreated>
 
 <Property name="DomainName">
@@ -3224,7 +3575,7 @@ Number of sources</Description>
 <Property name="Negation">
 <Description>
 The Negation flag</Description>
-<Type>%Boolean</Type>
+<Type>%String</Type>
 </Property>
 
 <Property name="CorrelationHotel">
@@ -3261,6 +3612,10 @@ Timestamp of processing endtime.</Description>
 <Type>%TimeStamp</Type>
 </Property>
 
+<Property name="CaclAlgorithm">
+<Type>%String</Type>
+</Property>
+
 <Storage name="Default">
 <Type>%Library.CacheStorage</Type>
 <DataLocation>^iknowAV.Ho4531.ProcessingRCBCAD</DataLocation>
@@ -3269,8 +3624,6 @@ Timestamp of processing endtime.</Description>
 <IndexLocation>^iknowAV.Ho4531.ProcessingRCBCAI</IndexLocation>
 <StreamLocation>^iknowAV.Ho4531.ProcessingRCBCAS</StreamLocation>
 <Data name="ProcessingResultDefaultData">
-<Structure>listnode</Structure>
-<Subscript/>
 <Value name="1">
 <Value>%%CLASSNAME</Value>
 </Value>
@@ -3321,6 +3674,9 @@ Timestamp of processing endtime.</Description>
 </Value>
 <Value name="17">
 <Value>ProcessingDateTime</Value>
+</Value>
+<Value name="18">
+<Value>CaclAlgorithm</Value>
 </Value>
 </Data>
 </Storage>
@@ -3541,7 +3897,7 @@ Estimated rating of hospitality.</Description>
 
 <Class name="iknowAV.Hotels.Stat.ReviewStat">
 <Super>%Persistent</Super>
-<TimeChanged>63426,43173.037753</TimeChanged>
+<TimeChanged>63434,49495.809633</TimeChanged>
 <TimeCreated>63389,61279.232043</TimeCreated>
 
 <Property name="ReviewId">
@@ -3638,6 +3994,10 @@ Negative emotional saturation of the review.</Description>
 <SqlComputed>1</SqlComputed>
 </Property>
 
+<Property name="iKnowRating">
+<Type>%Numeric</Type>
+</Property>
+
 <Storage name="Default">
 <Type>%Library.CacheStorage</Type>
 <DataLocation>^iknowAV.Hotels4531.ReviewStatD</DataLocation>
@@ -3646,8 +4006,6 @@ Negative emotional saturation of the review.</Description>
 <IndexLocation>^iknowAV.Hotels4531.ReviewStatI</IndexLocation>
 <StreamLocation>^iknowAV.Hotels4531.ReviewStatS</StreamLocation>
 <Data name="ReviewStatDefaultData">
-<Structure>listnode</Structure>
-<Subscript/>
 <Value name="1">
 <Value>%%CLASSNAME</Value>
 </Value>
@@ -3675,6 +4033,9 @@ Negative emotional saturation of the review.</Description>
 <Value name="9">
 <Value>NumberOfEntities</Value>
 </Value>
+<Value name="10">
+<Value>iKnowRating</Value>
+</Value>
 </Data>
 </Storage>
 </Class>
@@ -3682,7 +4043,7 @@ Negative emotional saturation of the review.</Description>
 
 <Class name="iknowAV.Hotels.Stat.Statistics">
 <Super>%RegisteredObject</Super>
-<TimeChanged>63428,41599.733222</TimeChanged>
+<TimeChanged>63433,63228.029467</TimeChanged>
 <TimeCreated>63393,40728.632605</TimeCreated>
 
 <Method name="Min">
@@ -3765,11 +4126,11 @@ Negative emotional saturation of the review.</Description>
 <FormalSpec>listX:%List,listY:%List</FormalSpec>
 <ReturnType>%Numeric</ReturnType>
 <Implementation><![CDATA[
-	set covatiation = ..Cov(listX, listY)
+	set covariation = ..Cov(listX, listY)
 	set stdDevX = ..StdDev(listX)
 	set stdDevY = ..StdDev(listY)
 	
-	return covatiation / (stdDevX * stdDevY)
+	return covariation / (stdDevX * stdDevY)
 ]]></Implementation>
 </Method>
 </Class>
